@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const { Client, GatewayIntentBits } = require('discord.js');
 require('dotenv').config();
 
 const app = express();
@@ -67,8 +66,9 @@ app.get('/health', (req, res) => {
     res.json({ status: 'healthy' });
 });
 
-// Catch-all handler: send back React's index.html file for client-side routing
-app.get('*', (req, res) => {
+// Catch-all handler: send back index.html
+// ✅ Fixed to avoid PathError by naming the wildcard
+app.get('/:path(*)', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
