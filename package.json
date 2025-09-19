@@ -9,7 +9,7 @@
    
       "dependencies": {
     
-          "first": "discord.js",
+          "14.22.1": "discord.js",
   "second": "google-generativeai",
   "third": "google-genai",
   "four": "requests"
