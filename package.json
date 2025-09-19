@@ -9,5 +9,6 @@
   "dependencies": {
     "discord.js": "14.22.1",
     "react-scripts": "5.0.1"
+    "express": "5.1.0"
   }
 }
