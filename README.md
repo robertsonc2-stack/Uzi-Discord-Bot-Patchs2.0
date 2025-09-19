@@ -1,11 +1,11 @@
 # Uzi-Discord-Bot
 
-A Discord bot featuring characters from Murder Drones including Uzi Doorman, SD-N, and SD-V for roleplay interactions.
+A Discord bot featuring a character from Murder Drones Called Uzi Doorman for roleplay interactions.
 
 ## Features
 
 - **Slash Commands**: Modern Discord interactions with /commands
-- **Roleplay Characters**: Uzi Doorman, SD-N, and SD-V with unique personalities
+- **Roleplay Character**: Uzi Doorman with unique personalities
 - **Web Dashboard**: Simple web interface to view bot status
 - **Multiple Response Types**: Each character has unique response pools
 - **Easy Setup**: Simple configuration with environment variables
@@ -74,8 +74,6 @@ npm run dev
 ### Slash Commands
 - `/ping` - Check if the bot is responsive
 - `/uzi` - Get a response from Uzi Doorman
-- `/sdn` - Get a response from SD-N
-- `/sdv` - Get a response from SD-V
 - `/help` - Show all available commands
 
 ### Legacy Commands (prefix: !)
@@ -87,12 +85,6 @@ npm run dev
 
 ### Uzi Doorman
 A worker drone with a mysterious past, often questioning her existence and showing determination.
-
-### SD-N
-A disassembly drone focused on mission completion, with a serious and tactical personality.
-
-### SD-V
-A combat-oriented drone with violent tendencies but professional demeanor.
 
 ## Web Dashboard
 Access the web dashboard at `http://localhost:3000` when running the server. The dashboard shows:
