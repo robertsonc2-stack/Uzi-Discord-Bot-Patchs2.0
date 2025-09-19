@@ -1,7 +1,7 @@
 {
   "name": "Uzi-Discord-Bot",
-  "version": "1.0.0",
-  "description": "A Discord bot featuring Murder Drones roleplay characters",
+  "version": "1.0.1",
+  "description": "A Discord bot featuring Uzi Doorman",
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
@@ -27,6 +27,6 @@
     "uzi",
     "roleplay"
   ],
-  "author": "Your Name",
+  "author": "Coltonsr77",
   "license": "MIT"
 }
