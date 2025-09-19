@@ -37,14 +37,4 @@ function displayBots() {
     });
 }
 
-// Function to show more info about a bot
-function moreInfo(index) {
-    const bot = bots[index];
-    alert(`More info about ${bot.name}:\n\nDescription: ${bot.description}\nPrefix: ${bot.prefix}`);
-}
-
-// Event listener for DOM load
-document.addEventListener("DOMContentLoaded", () => {
-    displayBots();
-});
 
