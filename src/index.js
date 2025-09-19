@@ -6,7 +6,7 @@ const bots = [
         prefix: "/"
     },
     {
-        name: "SD-N,
+        name: "SD-N",
         description: "Roleplays as SD-N.",
         prefix: "/"
     },
