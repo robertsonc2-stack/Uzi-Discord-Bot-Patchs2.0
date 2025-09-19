@@ -7,9 +7,10 @@
     "build": "react-scripts build"
   },
   "dependencies": {
-    "discord.js": "14.22.1"
+    "discord.js": "14.22.1",
     "react-scripts": "5.0.1"
   }
 }
+
 
 
