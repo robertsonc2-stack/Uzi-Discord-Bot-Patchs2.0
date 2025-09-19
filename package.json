@@ -1,16 +1,14 @@
-    {
-      "name": "Uzi-Discord-Bot",
-      "version": "1.0.0",
-      "scripts": {
-        "start": "node server.js",
-        "test": "jest",
-        "build": "react-scripts build"
-      },
-   
-      "dependencies": {
-    
-          "discord.js": "14.22.1",
-      }
-    }
+{
+  "name": "Uzi-Discord-Bot",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node server.js",
+    "test": "jest",
+    "build": "react-scripts build"
+  },
+  "dependencies": {
+    "discord.js": "14.22.1"
+  }
+}
 
 
