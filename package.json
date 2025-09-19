@@ -10,9 +10,6 @@
       "dependencies": {
     
           "discord.js": "14.22.1",
-  "second": "google-generativeai",
-  "third": "google-genai",
-  "four": "requests"
       }
     }
 
