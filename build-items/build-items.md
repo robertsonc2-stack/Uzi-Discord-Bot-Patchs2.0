@@ -4,5 +4,5 @@ Please Use The Repo It Has Important Info and Build Data
 
 robertsonc2-stack/Uzi-Discord-Bot-Patchs
 
-btw Sometimes We Will Update This Repo ^^^^
+^^^^ Sometimes We Will Update This Repo 
 So Check There for New Patchs/Updates
