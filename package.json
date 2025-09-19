@@ -1,14 +1,26 @@
 {
   "name": "Uzi-Discord-Bot",
   "version": "1.0.0",
+  "description": "A Discord bot featuring Murder Drones roleplay characters",
+  "main": "index.js",
   "scripts": {
     "start": "node server.js",
+    "bot": "node index.js",
+    "dev": "concurrently &quot;npm run bot&quot; &quot;npm run server&quot;",
+    "server": "node server.js",
     "test": "jest",
-    "build": "react-scripts build"
+    "build": "echo 'No build step required for Discord bot'"
   },
   "dependencies": {
-    "discord.js": "14.22.1",
-    "react-scripts": "5.0.1",
-    "express": "5.1.0"
-  }
+    "discord.js": "^14.22.1",
+    "express": "^5.1.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0",
+    "jest": "^29.0.0"
+  },
+  "keywords": ["discord", "bot", "murder-drones", "uzi", "roleplay"],
+  "author": "Your Name",
+  "license": "MIT"
 }

@@ -1,12 +1,122 @@
 # Uzi-Discord-Bot
-Welcome to my Repo!
 
-To Add Uzi Doorman 
+A Discord bot featuring characters from Murder Drones including Uzi Doorman, SD-N, and SD-V for roleplay interactions.
 
-Click This Link
+## Features
 
-https://discord.com/oauth2/authorize?client_id=1413852495687712812&integration_type=0&scope=bot%20applications.commands&permissions=8
+- **Slash Commands**: Modern Discord interactions with /commands
+- **Roleplay Characters**: Uzi Doorman, SD-N, and SD-V with unique personalities
+- **Web Dashboard**: Simple web interface to view bot status
+- **Multiple Response Types**: Each character has unique response pools
+- **Easy Setup**: Simple configuration with environment variables
 
-btw The Bot is Not Working rn
+## Setup Instructions
 
-Please Report Problems on This Repo
+### 1. Clone the Repository
+```bash
+git clone https://github.com/coltonsr77/Uzi-Discord-Bot.git
+cd Uzi-Discord-Bot
+```
+
+### 2. Install Dependencies
+```bash
+npm install
+```
+
+### 3. Configure Environment Variables
+1. Copy `.env.example` to `.env`
+2. Fill in your Discord bot token and client ID
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` file:
+```
+DISCORD_TOKEN=your_actual_bot_token_here
+CLIENT_ID=your_actual_client_id_here
+```
+
+### 4. Get Your Discord Bot Token
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create a new application
+3. Go to "Bot" section and create a bot
+4. Copy the bot token and paste it in `.env`
+5. Enable the following intents:
+   - Server Members Intent
+   - Message Content Intent
+
+### 5. Invite the Bot to Your Server
+Use this URL format (replace YOUR_CLIENT_ID):
+```
+https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scope=bot%20applications.commands
+```
+
+### 6. Run the Bot
+
+#### Option A: Run both bot and web server
+```bash
+npm start
+```
+
+#### Option B: Run only the Discord bot
+```bash
+npm run bot
+```
+
+#### Option C: Run in development mode (both services)
+```bash
+npm run dev
+```
+
+## Available Commands
+
+### Slash Commands
+- `/ping` - Check if the bot is responsive
+- `/uzi` - Get a response from Uzi Doorman
+- `/sdn` - Get a response from SD-N
+- `/sdv` - Get a response from SD-V
+- `/help` - Show all available commands
+
+### Legacy Commands (prefix: !)
+- `!ping` - Check if the bot is responsive
+- `!uzi` - Get a response from Uzi Doorman
+- `!help` - Show available commands
+
+## Character Personalities
+
+### Uzi Doorman
+A worker drone with a mysterious past, often questioning her existence and showing determination.
+
+### SD-N
+A disassembly drone focused on mission completion, with a serious and tactical personality.
+
+### SD-V
+A combat-oriented drone with violent tendencies but professional demeanor.
+
+## Web Dashboard
+Access the web dashboard at `http://localhost:3000` when running the server. The dashboard shows:
+- Bot status
+- Available commands
+- Character information
+
+## Troubleshooting
+
+### Bot not responding?
+1. Check if the bot token is correctly set in `.env`
+2. Verify the bot has necessary permissions in your server
+3. Check console for error messages
+
+### Commands not appearing?
+1. It may take up to 1 hour for slash commands to register globally
+2. For faster testing, use guild-specific commands (see Discord.js docs)
+
+### Web server not starting?
+1. Check if port 3000 is already in use
+2. Verify all dependencies are installed with `npm install`
+
+## Contributing
+Feel free to submit issues or pull requests to improve the bot!
+
+## License
+MIT License - feel free to use and modify as needed.
