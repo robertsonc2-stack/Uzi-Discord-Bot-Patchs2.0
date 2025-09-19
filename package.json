@@ -1,7 +1,8 @@
 {
-  "First" discord.py
-  "Second" google-generativeai
-  "Third" google-genai
-  "Fourest" requests
+  "First": "discord.py",
+  "Second": "google-generativeai",
+  "Third": "google-genai",
+  "Fourest": "requests"
 }
+
 
