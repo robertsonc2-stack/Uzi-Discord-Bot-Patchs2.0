@@ -4,11 +4,11 @@
       "scripts": {
         "start": "node server.js",
         "test": "jest",
-        "build": "react-scripts build" // Example for a React project
+        "build": "react-scripts build"
       },
    
       "dependencies": {
-        // ...
+    
           "First": "discord.py",
   "Second": "google-generativeai",
   "Third": "google-genai",
