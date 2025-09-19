@@ -1,4 +1,5 @@
-discord.py
-google-generativeai
-google-genai
-requests
+{
+  "First" discord.py
+  "2" google-generativeai
+}
+
