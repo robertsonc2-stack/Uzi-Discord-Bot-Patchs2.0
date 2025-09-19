@@ -1,5 +1,7 @@
 {
   "First" discord.py
-  "2" google-generativeai
+  "Second" google-generativeai
+  "Third" google-genai
+  "Fourest" requests
 }
 
