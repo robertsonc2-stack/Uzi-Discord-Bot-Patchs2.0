@@ -1,8 +1,19 @@
-{
-  "First": "discord.py",
+    {
+      "name": "Uzi-Discord-Bot",
+      "version": "1.0.0",
+      "scripts": {
+        "start": "node server.js",
+        "test": "jest",
+        "build": "react-scripts build" // Example for a React project
+      },
+   
+      "dependencies": {
+        // ...
+          "First": "discord.py",
   "Second": "google-generativeai",
   "Third": "google-genai",
   "Fourest": "requests"
-}
+      }
+    }
 
 
