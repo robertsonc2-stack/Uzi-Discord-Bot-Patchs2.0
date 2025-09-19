@@ -6,14 +6,14 @@ const bots = [
         prefix: "/"
     },
     {
-        name: "ModGuard",
-        description: "Keeps your server safe by moderating messages and users.",
-        prefix: "?"
+        name: "SD-N,
+        description: "Roleplays as SD-N.",
+        prefix: "/"
     },
     {
-        name: "FunBot",
-        description: "Fun games, memes, and interactive commands for your server.",
-        prefix: "-"
+        name: "SD-V",
+        description: "Roleplays as SD-V.",
+        prefix: "/"
     }
 ];
 
