@@ -13,14 +13,20 @@
   },
   "dependencies": {
     "discord.js": "^14.22.1",
-    "express": "^5.1.0",
-    "dotenv": "^16.0.0"
+    "dotenv": "^16.0.0",
+    "express": "^5.1.0"
   },
   "devDependencies": {
     "concurrently": "^7.6.0",
     "jest": "^29.0.0"
   },
-  "keywords": ["discord", "bot", "murder-drones", "uzi", "roleplay"],
+  "keywords": [
+    "discord",
+    "bot",
+    "murder-drones",
+    "uzi",
+    "roleplay"
+  ],
   "author": "Your Name",
   "license": "MIT"
 }
