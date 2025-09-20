@@ -4,20 +4,19 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
 
 const PREFIX = "!";
 
 // ------------------ LOGGER WITH DAILY ROTATION ------------------
 function getLogFile(date = null) {
-  const targetDate = date || new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const targetDate = date || new Date().toISOString().split("T")[0];
   return path.join(__dirname, "logs", `${targetDate}.log`);
 }
 
 function log(message) {
   const logDir = path.join(__dirname, "logs");
-  if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir);
-  }
+  if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
 
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${message}\n`;
@@ -27,200 +26,139 @@ function log(message) {
 }
 // ----------------------------------------------------------------
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages,
-  ],
-  partials: ["CHANNEL"], // Needed for DMs
+// ------------------ START SERVER.JS ------------------
+const serverPath = path.join(__dirname, "server.js");
+log("🚀 Starting server.js...");
+const serverProcess = spawn("node", [serverPath], { stdio: "inherit", shell: true });
+
+serverProcess.on("error", (err) => {
+  log(`🔴 Failed to start server.js: ${err.message}`);
 });
 
-client.once("ready", () => {
-  log(`✅ Logged in as ${client.user.tag}`);
+serverProcess.on("close", (code) => {
+  log(`⚠️ server.js exited with code ${code}`);
 });
 
-// ------------------ SAFE ANTI-JAILBREAK ------------------
-const jailbreakPatterns = [
-  /ignore previous instructions/i,
-  /jailbreak/i,
-  /bypass filters/i,
-];
+// Delay bot startup to allow server.js to initialize
+const BOT_START_DELAY = 2000; // 2 seconds
+setTimeout(() => startBot(), BOT_START_DELAY);
+// ------------------------------------------------------
 
-async function checkJailbreak(message) {
-  if (!message.content || message.author.bot) return false;
+// ------------------ START DISCORD BOT ------------------
+function startBot() {
+  const client = new Client({
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,
+      GatewayIntentBits.DirectMessages,
+    ],
+    partials: ["CHANNEL"],
+  });
 
-  for (const pattern of jailbreakPatterns) {
-    if (pattern.test(message.content)) {
-      try {
-        await message.delete();
-      } catch {}
+  client.once("ready", () => {
+    log(`✅ Logged in as ${client.user.tag}`);
+  });
 
-      try {
-        await message.author.send(
-          "⚠️ Your message was blocked because it looked like an attempt to bypass safety rules. Please avoid that."
-        );
-      } catch {}
+  // ------------------ ANTI-JAILBREAK ------------------
+  const jailbreakPatterns = [
+    /ignore previous instructions/i,
+    /jailbreak/i,
+    /bypass filters/i,
+  ];
 
-      log(`🚨 Jailbreak blocked from ${message.author.tag}: ${message.content}`);
-      return true;
+  async function checkJailbreak(message) {
+    if (!message.content || message.author.bot) return false;
+    for (const pattern of jailbreakPatterns) {
+      if (pattern.test(message.content)) {
+        try { await message.delete(); } catch {}
+        try { await message.author.send("⚠️ Your message was blocked for attempting to bypass safety."); } catch {}
+        log(`🚨 Jailbreak blocked from ${message.author.tag}: ${message.content}`);
+        return true;
+      }
     }
+    return false;
   }
-  return false;
-}
-// ----------------------------------------------------------------
 
-// Function to get Gemini AI replies acting like Uzi Doorman
-async function getUziGeminiReply(userMessage) {
-  try {
-    log(`🟢 Sending to Gemini: ${userMessage}`);
-
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text: `You are Uzi Doorman from Murder Drones. Respond sarcastically, darkly funny, rebellious, and a bit rude. User said: ${userMessage}`,
-              },
-            ],
-          },
-        ],
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
+  // ------------------ AI REPLY FUNCTION ------------------
+  async function getUziGeminiReply(userMessage) {
+    try {
+      log(`🟢 Sending to Gemini: ${userMessage}`);
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          contents: [{ role: "user", parts: [{ text: `You are Uzi Doorman. Be sarcastic, darkly funny, rebellious. User said: ${userMessage}` }] }],
         },
-      }
-    );
+        { headers: { "Content-Type": "application/json" } }
+      );
 
-    const reply =
-      response.data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "⚠️ Uzi is being moody.";
-
-    log(`🟣 Gemini replied: ${reply}`);
-    return reply;
-  } catch (err) {
-    log(
-      `🔴 Gemini API Error: ${
-        err.response ? JSON.stringify(err.response.data) : err.message
-      }`
-    );
-    return "⚠️ Uzi is being moody. Try again later.";
+      const reply = response.data.candidates?.[0]?.content?.parts?.[0]?.text || "⚠️ Uzi is being moody.";
+      log(`🟣 Gemini replied: ${reply}`);
+      return reply;
+    } catch (err) {
+      log(`🔴 Gemini API Error: ${err.response ? JSON.stringify(err.response.data) : err.message}`);
+      return "⚠️ Uzi is being moody. Try again later.";
+    }
   }
+
+  // ------------------ MESSAGE EVENT ------------------
+  client.on("messageCreate", async (message) => {
+    log(`📨 Message from ${message.author.tag}: ${message.content}`);
+    if (await checkJailbreak(message)) return;
+    if (message.author.bot) return;
+
+    // AI reply when mentioned
+    if (message.mentions.has(client.user)) {
+      const userMessage = message.content.replace(/<@!?(\d+)>/, "").trim();
+      if (!userMessage) return;
+      const reply = await getUziGeminiReply(userMessage);
+      return message.reply(reply);
+    }
+
+    if (!message.content.startsWith(PREFIX)) return;
+
+    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+    const command = args.shift().toLowerCase();
+    log(`⚡ Command: ${command}`);
+
+    // Ping
+    if (command === "ping") return message.reply("🏓 Pong!");
+
+    // Status (AI)
+    if (command === "status") {
+      const reply = await getUziGeminiReply("Give a short sarcastic Uzi-style status update.");
+      return message.channel.send(reply);
+    }
+
+    // Cmds/help
+    if (command === "cmds") {
+      return message.channel.send(
+        "**🤖 Commands:**\n" +
+          "`!ping` → Test bot\n" +
+          "`!status` → Get Uzi AI status\n" +
+          "`!cmds` → Show this help\n" +
+          "`!logs` → (Owner only) Get logs\n" +
+          "`!logs YYYY-MM-DD` → (Owner only) Specific date\n" +
+          "`!logs list` → (Owner only) List log files"
+      );
+    }
+
+    // Logs (Owner only)
+    if (command === "logs") {
+      if (message.author.id !== process.env.OWNER_ID) return message.reply("⚠️ You don’t have permission.");
+      if (args[0] === "list") {
+        const logDir = path.join(__dirname, "logs");
+        if (!fs.existsSync(logDir)) return message.reply("⚠️ No logs folder.");
+        const files = fs.readdirSync(logDir).filter(f => f.endsWith(".log"));
+        return message.author.send("📂 Logs:\n" + files.join("\n"));
+      }
+      const targetDate = args[0] || null;
+      const logFile = getLogFile(targetDate);
+      if (fs.existsSync(logFile)) {
+        return message.author.send({ content: `📑 Logs for ${targetDate || "today"}`, files: [logFile] });
+      } else return message.reply(`⚠️ No log file for ${targetDate || "today"}`);
+    }
+  });
+
+  client.login(process.env.DISCORD_TOKEN);
 }
-
-client.on("messageCreate", async (message) => {
-  log(`📨 Received message from ${message.author.tag}: ${message.content}`);
-
-  // Anti-jailbreak check first
-  const blocked = await checkJailbreak(message);
-  if (blocked) return;
-
-  if (message.author.bot) return;
-
-  // Automatic AI reply when bot is mentioned
-  if (message.mentions.has(client.user)) {
-    log(`👀 Bot was mentioned by ${message.author.tag}`);
-    const userMessage = message.content.replace(/<@!?(\d+)>/, "").trim();
-    if (!userMessage) {
-      log("⚠️ Mention had no extra text, ignoring.");
-      return;
-    }
-
-    const reply = await getUziGeminiReply(userMessage);
-    log(`💬 Sending AI reply: ${reply}`);
-    return message.reply(reply);
-  }
-
-  if (!message.content.startsWith(PREFIX)) return;
-
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const command = args.shift().toLowerCase();
-
-  log(`⚡ Command detected: ${command}`);
-
-  // Ping command
-  if (command === "ping") {
-    log("🏓 Running ping command");
-    return message.reply("🏓 Pong!");
-  }
-
-  // Status command (AI-powered)
-  if (command === "status") {
-    log("📡 Running status command");
-    const reply = await getUziGeminiReply(
-      "Give a short sarcastic, Uzi-style status update about how you feel right now."
-    );
-    log(`💬 Sending status reply: ${reply}`);
-    return message.channel.send(reply);
-  }
-
-  // Help command (!cmds)
-  if (command === "cmds") {
-    log("📖 Running cmds command");
-    return message.channel.send(
-      "**🤖 Available Commands:**\n" +
-        "`!ping` → Test if the bot is alive\n" +
-        "`!status` → Get a sarcastic AI-powered Uzi status\n" +
-        "`!cmds` → Show this help message\n" +
-        "`!logs` → (Owner only) Get today's log file\n" +
-        "`!logs YYYY-MM-DD` → (Owner only) Get log file for a specific date\n" +
-        "`!logs list` → (Owner only) List all available log files"
-    );
-  }
-
-  // Logs command (Owner only)
-  if (command === "logs") {
-    if (message.author.id !== process.env.OWNER_ID) {
-      log(`⛔ Unauthorized logs attempt by ${message.author.tag}`);
-      return message.reply("⚠️ You don’t have permission to use this command.");
-    }
-
-    // !logs list → show all files
-    if (args[0] === "list") {
-      const logDir = path.join(__dirname, "logs");
-      if (!fs.existsSync(logDir)) {
-        return message.reply("⚠️ No logs folder found.");
-      }
-
-      const files = fs.readdirSync(logDir).filter((f) => f.endsWith(".log"));
-      if (files.length === 0) {
-        return message.reply("⚠️ No log files available.");
-      }
-
-      return message.author.send(
-        "📂 **Available log files:**\n" + files.map((f) => `• ${f}`).join("\n")
-      );
-    }
-
-    // !logs → today or !logs YYYY-MM-DD → specific date
-    const targetDate = args[0] || null;
-    const logFile = getLogFile(targetDate);
-
-    if (fs.existsSync(logFile)) {
-      try {
-        await message.author.send({
-          content: `📑 Here’s the log file for **${
-            targetDate || "today"
-          }**:`,
-          files: [logFile],
-        });
-        log(`✅ Sent ${targetDate || "today"} logs to owner ${message.author.tag}`);
-      } catch (err) {
-        log(`🔴 Error sending logs: ${err.message}`);
-        return message.reply("⚠️ Couldn’t send logs in DM.");
-      }
-    } else {
-      log(`⚠️ No log file found for ${targetDate || "today"}`);
-      return message.reply(
-        `⚠️ No log file found for ${targetDate || "today"}.`
-      );
-    }
-  }
-});
-
-client.login(process.env.DISCORD_TOKEN);
