@@ -1,38 +1,7 @@
 // index.js
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
-const serverSettings = require("./serverSettings");
-const net = require("net");
-
-// --- Discord Owner ID (your user) ---
-const OWNER_ID = "YOUR_USER_ID_HERE"; // ← change this to your Discord ID
-
-// --- Check if server is already running before starting ---
-const PORT = 3000;
-function startServer() {
-  try {
-    require("./server.js"); // will only start server once
-    console.log("🌐 Server.js loaded (server running or already active).");
-  } catch (err) {
-    console.error("❌ Failed to load server.js:", err);
-  }
-}
-
-const tester = net.createServer()
-  .once("error", (err) => {
-    if (err.code === "EADDRINUSE") {
-      console.log(`⚠️ Port ${PORT} already in use. Connecting to existing server.js...`);
-      startServer();
-    } else {
-      console.error(err);
-    }
-  })
-  .once("listening", () => {
-    tester.close();
-    console.log("✅ Port free. Starting server.js...");
-    startServer();
-  })
-  .listen(PORT);
+const serverModule = require("./server.js"); // server.js exports addLog and commands
 
 // --- Create bot client ---
 const client = new Client({
@@ -43,20 +12,23 @@ const client = new Client({
   ],
 });
 
-// --- Log function sending DMs to you ---
+// --- Dynamic log function using authorizedUserId from server.js ---
 async function logEvent(message) {
   const time = new Date().toLocaleTimeString();
   const logMsg = `[${time}] ${message}`;
   console.log(logMsg);
 
   try {
-    if (client.isReady()) {
-      const owner = await client.users.fetch(OWNER_ID);
-      if (owner) owner.send(`📩 ${logMsg}`).catch(() => {});
+    if (client.isReady() && serverModule.authorizedUserId) {
+      const user = await client.users.fetch(serverModule.authorizedUserId);
+      if (user) user.send(`📩 ${logMsg}`).catch(() => {});
     }
   } catch (err) {
     console.error("Failed to send log DM:", err);
   }
+
+  // Also push to dashboard
+  if (serverModule.addLog) serverModule.addLog(logMsg);
 
   return logMsg;
 }
@@ -65,70 +37,11 @@ async function logEvent(message) {
 client.once("ready", async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   await logEvent(`Bot logged in as ${client.user.tag}`);
-
-  // Set initial status
-  const settings = serverSettings.getSettings("global");
-  if (settings.statusMessage) {
-    try {
-      client.user.setActivity(settings.statusMessage, { type: 3 });
-    } catch (err) {
-      console.error("Failed to set bot activity:", err);
-    }
-  }
-
-  // Optional: dynamic status updates
-  setInterval(() => {
-    const newSettings = serverSettings.getSettings("global");
-    if (
-      newSettings.statusMessage &&
-      client.user.presence.activities[0]?.name !== newSettings.statusMessage
-    ) {
-      try {
-        client.user.setActivity(newSettings.statusMessage, { type: 3 });
-        logEvent(`Bot status updated to: ${newSettings.statusMessage}`);
-      } catch (err) {
-        console.error("Failed to update bot activity:", err);
-      }
-    }
-  }, 5000);
 });
 
 // --- Commands ---
 const PREFIX = "!";
-const commands = {
-  ping: {
-    description: "Test if bot is alive",
-    run: (msg) => msg.reply("🏓 Pong!"),
-  },
-  status: {
-    description: "Show bot status",
-    run: (msg) =>
-      msg.reply(
-        `✅ Online as ${client.user.tag}\n🌍 Servers: ${client.guilds.cache.size}`
-      ),
-  },
-  cmds: {
-    description: "Show all commands",
-    run: (msg) => {
-      let list = "**🤖 Commands:**\n";
-      for (const [name, cmd] of Object.entries(commands)) {
-        list += `\`!${name}\` → ${cmd.description}\n`;
-      }
-      msg.channel.send(list);
-    },
-  },
-  logs: {
-    description: "View logs (DM only)",
-    run: (msg) => {
-      msg.author.send("📂 Logs are available in your DMs automatically.");
-    },
-  },
-  dashboard: {
-    description: "Link to dashboard",
-    run: (msg) =>
-      msg.reply("🌐 Open the bot dashboard: http://localhost:3000/dashboard"),
-  },
-};
+const commands = serverModule.commands; // commands imported from server.js
 
 // --- Message listener ---
 client.on("messageCreate", async (message) => {
@@ -141,7 +54,26 @@ client.on("messageCreate", async (message) => {
   if (!command) return;
 
   try {
-    await command.run(message, args);
+    // Example commands implementation
+    if (commandName === "ping") await message.reply("🏓 Pong!");
+    if (commandName === "status")
+      await message.reply(
+        `✅ Online as ${client.user.tag}\n🌍 Servers: ${client.guilds.cache.size}`
+      );
+    if (commandName === "cmds") {
+      let list = "**🤖 Commands:**\n";
+      for (const [name, desc] of Object.entries(commands)) {
+        list += `\`!${name}\` → ${desc}\n`;
+      }
+      await message.channel.send(list);
+    }
+    if (commandName === "logs")
+      await message.author.send(
+        "📂 Logs are automatically sent to your DMs from the dashboard authorization."
+      );
+    if (commandName === "dashboard")
+      await message.reply("🌐 Open the bot dashboard: http://localhost:3000/dashboard");
+
     await logEvent(
       `Command used: !${commandName} by ${message.author.tag} in #${message.channel.name}`
     );
