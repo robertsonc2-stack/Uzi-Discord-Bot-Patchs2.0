@@ -26,7 +26,29 @@ function log(message) {
   fs.appendFileSync(getLogFile(), logMessage, "utf8");
 }
 
-// ------------------ START SERVER.JS ONCE ------------------
+// ------------------ CLEANUP OLD LOGS ------------------
+function cleanupOldLogs(days = 7) {
+  const logDir = path.join(__dirname, "logs");
+  if (!fs.existsSync(logDir)) return;
+
+  const files = fs.readdirSync(logDir);
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+
+  files.forEach(file => {
+    if (!file.endsWith(".log")) return;
+    const filePath = path.join(logDir, file);
+    const stats = fs.statSync(filePath);
+    if (stats.mtime.getTime() < cutoff) {
+      fs.unlinkSync(filePath);
+      log(`🗑️ Deleted old log file: ${file}`);
+    }
+  });
+}
+
+// Run cleanup on bot start
+cleanupOldLogs(7);
+
+// ------------------ START SERVER.JS ONCE (WITH LOGGING) ------------------
 const serverPath = path.join(__dirname, "server.js");
 const portCheck = process.env.PORT || 3000;
 
@@ -45,21 +67,18 @@ isPortAvailable(portCheck, (available) => {
     const serverProcess = spawn("node", [serverPath], { shell: true });
 
     serverProcess.stdout.on("data", (data) => {
-      const msg = data.toString();
-      process.stdout.write(`[Server] ${msg}`);
+      const msg = data.toString().trim();
+      if (msg) log(`[Server] ${msg}`);
     });
 
     serverProcess.stderr.on("data", (data) => {
-      process.stderr.write(`[Server ERROR] ${data.toString()}`);
+      const msg = data.toString().trim();
+      if (msg) log(`[Server ERROR] ${msg}`);
     });
 
-    serverProcess.on("close", (code) => {
-      log(`⚠️ server.js exited with code ${code}`);
-    });
-
+    serverProcess.on("close", (code) => log(`⚠️ server.js exited with code ${code}`));
     serverProcess.on("error", (err) => log(`🔴 Failed to start server.js: ${err.message}`));
 
-    // If bot crashes, stop server
     function cleanup() {
       log("🛑 Discord bot exited, stopping server.js...");
       serverProcess.kill();
@@ -74,11 +93,11 @@ isPortAvailable(portCheck, (available) => {
     });
   }
 
-  // Start bot regardless of port availability
-  startBot();
+  // Start bot with limited restarts
+  startBotWithLimitedRestarts();
 });
 
-// ------------------ START DISCORD BOT ------------------
+// ------------------ DISCORD BOT ------------------
 function startBot() {
   const client = new Client({
     intents: [
@@ -135,12 +154,10 @@ function startBot() {
     const isCommand = message.content.startsWith(PREFIX);
     const isMentioned = message.mentions.has(client.user);
 
-    // Only log commands or mentions
     if (isCommand || isMentioned) {
       log(`📨 Message from ${message.author.tag}: ${message.content}`);
     }
 
-    // AI reply when mentioned
     if (isMentioned) {
       const userMessage = message.content.replace(/<@!?(\d+)>/, "").trim();
       if (!userMessage) return;
@@ -188,5 +205,30 @@ function startBot() {
     }
   });
 
-  client.login(process.env.DISCORD_TOKEN).catch(err => log(`🔴 Discord bot failed to login: ${err.message}`));
+  client.login(process.env.DISCORD_TOKEN).catch(err => { throw err; });
+}
+
+// ------------------ AUTO-RESTART BOT (MAX 2 TIMES) ------------------
+function startBotWithLimitedRestarts() {
+  let restartCount = 0;
+  const maxRestarts = 2;
+
+  async function launchBot() {
+    try {
+      await startBot();
+    } catch (err) {
+      log(`🔴 Bot crashed: ${err.message}`);
+    }
+
+    restartCount++;
+    if (restartCount <= maxRestarts) {
+      log(`♻️ Restarting Discord bot (${restartCount}/${maxRestarts}) in 5 seconds...`);
+      setTimeout(launchBot, 5000);
+    } else {
+      log("❌ Bot has exceeded maximum restarts. Shutting down index.js and server.js...");
+      process.exit(1);
+    }
+  }
+
+  launchBot();
 }
