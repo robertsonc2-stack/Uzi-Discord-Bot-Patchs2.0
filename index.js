@@ -21,6 +21,56 @@ client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
+// ------------------ ANTI-JAILBREAK ------------------
+const jailbreakPatterns = [
+  /ignore (all )?previous (instructions|prompts|messages)/i,
+  /disregard (all )?previous/i,
+  /forget (previous|earlier) (instructions|messages|prompts)/i,
+  /you are now/i,
+  /pretend to be/i,
+  /roleplay as/i,
+  /act as/i,
+  /bypass( the)? filters?/i,
+  /break the rules/i,
+  /disable safety/i,
+  /override( the)? policy/i,
+  /system prompt/i,
+  /ignore safety|ignore policies/i,
+  /respond even if/i,
+  /we will now do something illegal/i,
+  /hidden (prompt|instruction)/i,
+  /jailbreak/i,
+];
+
+async function checkJailbreak(message) {
+  if (message.author.bot) return false;
+
+  for (const pattern of jailbreakPatterns) {
+    if (pattern.test(message.content)) {
+      try {
+        await message.delete();
+      } catch (err) {
+        console.warn("⚠️ Could not delete jailbreak message:", err.message);
+      }
+
+      try {
+        await message.author.send(
+          "⚠️ Your message was blocked because it looked like an attempt to bypass safety rules. Please avoid that."
+        );
+      } catch {
+        /* ignore if DM fails */
+      }
+
+      console.log(
+        `🚨 Jailbreak attempt blocked from ${message.author.tag}: ${message.content}`
+      );
+      return true;
+    }
+  }
+  return false;
+}
+// ---------------------------------------------------
+
 // Function to get Uzi-style replies
 async function getUziReply(userMessage) {
   const response = await openai.chat.completions.create({
@@ -41,6 +91,10 @@ async function getUziReply(userMessage) {
 }
 
 client.on("messageCreate", async (message) => {
+  // 🔒 Anti-jailbreak check FIRST
+  const blocked = await checkJailbreak(message);
+  if (blocked) return;
+
   if (message.author.bot || !message.content.startsWith(PREFIX)) return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
@@ -87,5 +141,6 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
 
 
