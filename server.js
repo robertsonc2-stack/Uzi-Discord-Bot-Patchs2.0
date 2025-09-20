@@ -3,14 +3,12 @@ require("dotenv").config();
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const url = require("url");
 
 const PORT = 3000;
 
-// Simple in-memory server settings per guild
+// In-memory server settings
 const serverSettings = {};
 
-// Export functions to access settings
 function getSettings(guildId) {
   return serverSettings[guildId] || { botPrefix: "!", statusMessage: "Uzi is online" };
 }
@@ -20,7 +18,7 @@ function setSettings(guildId, settings) {
 
 module.exports = { getSettings, setSettings };
 
-// Helper to serve static files
+// Serve static files
 function serveFile(res, filePath, contentType, code = 200) {
   fs.readFile(filePath, (err, content) => {
     if (err) {
@@ -35,42 +33,20 @@ function serveFile(res, filePath, contentType, code = 200) {
 
 // --- HTTP SERVER ---
 const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url, true);
-  const pathname = parsedUrl.pathname;
-  const query = parsedUrl.query;
+  if (req.method === "POST" && req.url === "/get-dashboard") {
+    let body = "";
+    req.on("data", chunk => { body += chunk.toString(); });
+    req.on("end", () => {
+      const params = new URLSearchParams(body);
+      const guildId = params.get("guildId");
+      if (!guildId) {
+        res.writeHead(400, { "Content-Type": "text/plain" });
+        res.end("Guild ID missing");
+        return;
+      }
 
-  // --- API ROUTES ---
-  if (pathname === "/api/bots") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify([
-      { name: "Uzi-Doorman", description: "Roleplays as Uzi Doorman from Murder Drones", prefix: "!", status: "online" },
-      { name: "SD-N", description: "Roleplays as SD-N from Murder Drones", prefix: "/", status: "online" },
-      { name: "SD-V", description: "Roleplays as SD-V from Murder Drones", prefix: "/", status: "online" }
-    ]));
-    return;
-  }
-
-  if (pathname === "/api/status") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({
-      status: "running",
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString()
-    }));
-    return;
-  }
-
-  if (pathname === "/health") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ status: "healthy" }));
-    return;
-  }
-
-  // --- Dashboard Page for specific server ---
-  if (pathname === "/") {
-    const guildId = query.guildId;
-    if (guildId) {
       const settings = getSettings(guildId);
+
       const html = `
         <!DOCTYPE html>
         <html lang="en">
@@ -105,12 +81,61 @@ const server = http.createServer((req, res) => {
       `;
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end(html);
-      return;
-    }
+    });
+    return;
+  }
+
+  // --- GET DASHBOARD PAGE ---
+  if (req.method === "GET" && req.url === "/") {
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Server Dashboard</title>
+        <style>
+          body { font-family: Arial, sans-serif; background: #121212; color: #fff; padding: 2rem; }
+          h1 { color: #1DB954; }
+          .container { max-width: 600px; margin: auto; }
+          button { padding: 10px 20px; font-size: 16px; background: #1DB954; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+          input { padding: 10px; font-size: 16px; margin-top: 1rem; width: 100%; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Server Dashboard</h1>
+          <p>Click the button and enter your Guild ID to view your server settings:</p>
+          <input id="guildIdInput" placeholder="Enter your Guild ID" />
+          <button onclick="openDashboard()">Open Dashboard</button>
+
+          <script>
+            function openDashboard() {
+              const guildId = document.getElementById('guildIdInput').value.trim();
+              if (!guildId) return alert('Please enter a Guild ID');
+              fetch('/get-dashboard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'guildId=' + encodeURIComponent(guildId)
+              })
+              .then(res => res.text())
+              .then(html => {
+                document.open();
+                document.write(html);
+                document.close();
+              });
+            }
+          </script>
+        </div>
+      </body>
+      </html>
+    `;
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
   }
 
   // --- Serve static files if exists ---
-  let filePath = path.join(__dirname, "public", pathname === "/" ? "index.html" : pathname);
+  const filePath = path.join(__dirname, "public", req.url === "/" ? "index.html" : req.url);
   const extname = String(path.extname(filePath)).toLowerCase();
   const mimeTypes = {
     ".html": "text/html",
@@ -123,15 +148,13 @@ const server = http.createServer((req, res) => {
   };
   const contentType = mimeTypes[extname] || "application/octet-stream";
 
-  fs.exists(filePath, (exists) => {
+  fs.exists(filePath, exists => {
     if (exists) serveFile(res, filePath, contentType);
-    else {
-      // SPA fallback
-      serveFile(res, path.join(__dirname, "public", "index.html"), "text/html", 200);
-    }
+    else serveFile(res, path.join(__dirname, "public", "index.html"), "text/html", 200);
   });
 });
 
 server.listen(PORT, () => {
   console.log(`🌐 HTTP server running at http://localhost:${PORT}/`);
 });
+
