@@ -90,42 +90,4 @@ client.on("messageCreate", async (message) => {
 
   // Uzi AI using Gemini
   if (command === "uzi") {
-    const userMessage = args.join(" ");
-    if (!userMessage) {
-      return message.channel.send(
-        "😒 Uzi: 'What do you want me to say? Make it quick.'"
-      );
-    }
-
-    try {
-      const reply = await getUziGeminiReply(userMessage);
-      return message.channel.send(reply);
-    } catch (err) {
-      console.error("Gemini API Error:", err);
-      return message.channel.send("⚠️ Uzi is being moody. Try again later.");
-    }
-  }
-
-  // Ping command
-  if (command === "ping") {
-    return message.reply("🏓 Pong!");
-  }
-
-  // Hello command
-  if (command === "hello") {
-    return message.reply(`Hello, ${message.author.username}! 👋`);
-  }
-
-  // Help command (!cmds)
-  if (command === "cmds") {
-    return message.channel.send(
-      "**🤖 Available Commands:**\n" +
-        "`!uzi <message>` → Talk to Uzi Doorman (AI roleplay)\n" +
-        "`!ping` → Test if the bot is alive\n" +
-        "`!hello` → Greet the bot\n" +
-        "`!cmds` → Show this help message"
-    );
-  }
-});
-
-client.login(process.env.DISCORD_TOKEN);
+    const userMe
