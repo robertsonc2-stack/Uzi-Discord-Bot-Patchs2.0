@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 // Helper to serve JSON
 function sendJson(res, data, statusCode = 200) {
