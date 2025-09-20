@@ -4,6 +4,7 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
 
 const PREFIX = "!";
 
@@ -40,6 +41,29 @@ const client = new Client({
 
 client.once("ready", () => {
   log(`✅ Logged in as ${client.user.tag}`);
+
+  // ------------------ AUTO START + RESTART SERVER.JS ------------------
+  function startServer() {
+    const serverProcess = spawn("node", ["server.js"], {
+      cwd: __dirname,
+      stdio: "inherit",
+      shell: true,
+    });
+
+    log("🚀 server.js started");
+
+    serverProcess.on("close", (code) => {
+      log(`⚠️ server.js exited with code ${code}. Restarting in 5s...`);
+      setTimeout(startServer, 5000);
+    });
+
+    serverProcess.on("error", (err) => {
+      log(`🔴 Error running server.js: ${err.message}`);
+    });
+  }
+
+  startServer();
+  // -------------------------------------------------------------------
 });
 
 // ------------------ SAFE ANTI-JAILBREAK ------------------
@@ -169,7 +193,8 @@ client.on("messageCreate", async (message) => {
         "`!status` → Get a sarcastic AI-powered Uzi status\n" +
         "`!cmds` → Show this help message\n" +
         "`!logs` → (Owner only) Get today's log file\n" +
-        "`!logs YYYY-MM-DD` → (Owner only) Get log file for a specific date"
+        "`!logs YYYY-MM-DD` → (Owner only) Get log file for a specific date\n" +
+        "`!logs list` → (Owner only) List all available log files"
     );
   }
 
@@ -180,7 +205,24 @@ client.on("messageCreate", async (message) => {
       return message.reply("⚠️ You don’t have permission to use this command.");
     }
 
-    // Check if user requested a specific date
+    // !logs list → show all files
+    if (args[0] === "list") {
+      const logDir = path.join(__dirname, "logs");
+      if (!fs.existsSync(logDir)) {
+        return message.reply("⚠️ No logs folder found.");
+      }
+
+      const files = fs.readdirSync(logDir).filter((f) => f.endsWith(".log"));
+      if (files.length === 0) {
+        return message.reply("⚠️ No log files available.");
+      }
+
+      return message.author.send(
+        "📂 **Available log files:**\n" + files.map((f) => `• ${f}`).join("\n")
+      );
+    }
+
+    // !logs → today or !logs YYYY-MM-DD → specific date
     const targetDate = args[0] || null;
     const logFile = getLogFile(targetDate);
 
@@ -207,3 +249,4 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
