@@ -6,18 +6,19 @@ const path = require("path");
 const querystring = require("querystring");
 
 const PORT = 3000;
+const MY_USER_ID = "YOUR_USER_ID_HERE"; // <-- Replace with your Discord ID
 
-// In-memory server settings
-const serverSettings = {};
-const accessControl = {}; // { guildId: [allowedUserId1, allowedUserId2, ...] }
+// --- In-memory storage ---
+const serverSettings = {}; // { guildId: { botPrefix, statusMessage } }
+const accessControl = {};  // { guildId: [userId1, userId2, ...] }
 
+// --- Helper functions ---
 function getSettings(guildId) {
   return serverSettings[guildId] || { botPrefix: "!", statusMessage: "Uzi is online" };
 }
 function setSettings(guildId, settings) {
   serverSettings[guildId] = { ...getSettings(guildId), ...settings };
 }
-
 function getAllowedUsers(guildId) {
   return accessControl[guildId] || [];
 }
@@ -30,9 +31,7 @@ function removeAllowedUser(guildId, userId) {
   accessControl[guildId] = accessControl[guildId].filter(id => id !== userId);
 }
 
-module.exports = { getSettings, setSettings, getAllowedUsers, addAllowedUser, removeAllowedUser };
-
-// Serve static files
+// --- Serve static files ---
 function serveFile(res, filePath, contentType, code = 200) {
   fs.readFile(filePath, (err, content) => {
     if (err) {
@@ -45,8 +44,9 @@ function serveFile(res, filePath, contentType, code = 200) {
   });
 }
 
-// --- HTTP SERVER ---
+// --- HTTP Server ---
 const server = http.createServer((req, res) => {
+  // --- POST: Dashboard ---
   if (req.method === "POST" && req.url === "/get-dashboard") {
     let body = "";
     req.on("data", chunk => { body += chunk.toString(); });
@@ -54,6 +54,7 @@ const server = http.createServer((req, res) => {
       const params = querystring.parse(body);
       const guildId = params.guildId;
       const userId = params.userId;
+
       if (!guildId || !userId) {
         res.writeHead(400, { "Content-Type": "text/plain" });
         res.end("Guild ID and User ID are required");
@@ -68,6 +69,9 @@ const server = http.createServer((req, res) => {
       }
 
       const settings = getSettings(guildId);
+      const accessControlLink = userId === MY_USER_ID
+        ? `<p><a href="/access-control" style="color:#1DB954;">Manage Allowed Users</a></p>`
+        : "";
 
       const html = `
         <!DOCTYPE html>
@@ -98,6 +102,7 @@ const server = http.createServer((req, res) => {
               <input id="statusMessage" value="${settings.statusMessage}" />
               <button onclick="updateSettings()">Save Settings</button>
             </div>
+            ${accessControlLink}
           </div>
           <script>
             function updateSettings() {
@@ -122,6 +127,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // --- POST: Update settings ---
   if (req.method === "POST" && req.url === "/update-settings") {
     let body = "";
     req.on("data", chunk => { body += chunk.toString(); });
@@ -140,8 +146,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- Access Control Page ---
-  if (req.method === "GET" && req.url === "/access-control") {
+  // --- GET: Access Control (Admin Only) ---
+  if (req.method === "GET" && req.url.startsWith("/access-control")) {
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const userId = parsedUrl.searchParams.get("userId");
+    if (userId !== MY_USER_ID) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("❌ You do not have permission to access this page");
+      return;
+    }
+
     const html = `
       <!DOCTYPE html>
       <html lang="en">
@@ -158,8 +172,8 @@ const server = http.createServer((req, res) => {
       </head>
       <body>
         <div class="container">
-          <h1>Access Control</h1>
-          <p>Add a user ID to allow editing server settings:</p>
+          <h1>Access Control (Admin Only)</h1>
+          <p>Add or remove a user ID to allow editing server settings:</p>
           <input id="guildIdInput" placeholder="Enter Guild ID" />
           <input id="userIdInput" placeholder="Enter User ID to allow" />
           <button onclick="addUser()">Add User</button>
@@ -190,12 +204,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- Modify Access ---
+  // --- GET: Modify access ---
   if (req.method === "GET" && req.url.startsWith("/modify-access")) {
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
     const guildId = parsedUrl.searchParams.get("guildId");
     const userId = parsedUrl.searchParams.get("userId");
     const action = parsedUrl.searchParams.get("action");
+
     if (!guildId || !userId || !action) {
       res.writeHead(400, { "Content-Type": "text/plain" });
       res.end("Missing parameters");
@@ -203,82 +218,36 @@ const server = http.createServer((req, res) => {
     }
     if (action === "add") addAllowedUser(guildId, userId);
     if (action === "remove") removeAllowedUser(guildId, userId);
+
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end(`✅ User ${userId} ${action === "add" ? "added" : "removed"} for Guild ${guildId}`);
     return;
   }
 
-  // --- GET DASHBOARD PAGE ---
-  if (req.method === "GET" && req.url === "/") {
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Server Dashboard Login</title>
-        <style>
-          body { font-family: Arial, sans-serif; background: #121212; color: #fff; padding: 2rem; }
-          h1 { color: #1DB954; }
-          .container { max-width: 600px; margin: auto; }
-          input, button { padding: 10px; font-size: 16px; margin-top: 1rem; width: 100%; }
-          button { cursor: pointer; background: #1DB954; color: #fff; border: none; border-radius: 5px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>Server Dashboard Login</h1>
-          <input id="guildIdInput" placeholder="Enter Guild ID" />
-          <input id="userIdInput" placeholder="Enter Your User ID" />
-          <button onclick="openDashboard()">Open Dashboard</button>
-          <p>Manage allowed users: <a href="/access-control" style="color:#1DB954;">Access Control Page</a></p>
-          <script>
-            function openDashboard() {
-              const guildId = document.getElementById('guildIdInput').value.trim();
-              const userId = document.getElementById('userIdInput').value.trim();
-              if (!guildId || !userId) return alert('Please enter both Guild ID and User ID');
-              fetch('/get-dashboard', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'guildId=' + encodeURIComponent(guildId) + '&userId=' + encodeURIComponent(userId)
-              })
-              .then(res => res.text())
-              .then(html => {
-                document.open();
-                document.write(html);
-                document.close();
-              });
-            }
-          </script>
-        </div>
-      </body>
-      </html>
-    `;
-    res.writeHead(200, { "Content-Type": "text/html" });
-    res.end(html);
+  // --- Serve main login page or static files ---
+  if (req.method === "GET") {
+    const filePath = path.join(__dirname, "public", req.url === "/" ? "index.html" : req.url);
+    const extname = String(path.extname(filePath)).toLowerCase();
+    const mimeTypes = {
+      ".html": "text/html",
+      ".js": "application/javascript",
+      ".css": "text/css",
+      ".json": "application/json",
+      ".png": "image/png",
+      ".jpg": "image/jpg",
+      ".ico": "image/x-icon"
+    };
+    const contentType = mimeTypes[extname] || "application/octet-stream";
+
+    fs.exists(filePath, exists => {
+      if (exists) serveFile(res, filePath, contentType);
+      else serveFile(res, path.join(__dirname, "public", "index.html"), "text/html", 200);
+    });
     return;
   }
-
-  // --- Serve static files ---
-  const filePath = path.join(__dirname, "public", req.url === "/" ? "index.html" : req.url);
-  const extname = String(path.extname(filePath)).toLowerCase();
-  const mimeTypes = {
-    ".html": "text/html",
-    ".js": "application/javascript",
-    ".css": "text/css",
-    ".json": "application/json",
-    ".png": "image/png",
-    ".jpg": "image/jpg",
-    ".ico": "image/x-icon"
-  };
-  const contentType = mimeTypes[extname] || "application/octet-stream";
-
-  fs.exists(filePath, exists => {
-    if (exists) serveFile(res, filePath, contentType);
-    else serveFile(res, path.join(__dirname, "public", "index.html"), "text/html", 200);
-  });
 });
 
+// --- Start server ---
 server.listen(PORT, () => {
   console.log(`🌐 HTTP server running at http://localhost:${PORT}/`);
 });
-
