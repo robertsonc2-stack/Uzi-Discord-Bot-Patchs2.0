@@ -75,13 +75,13 @@ client.on("messageCreate", async (message) => {
   }
 
   // Help command
-  if (command === "help") {
+  if (command === "helpcmd") {
     return message.channel.send(
       "**🤖 Available Commands:**\n" +
         "`!uzi <message>` → Talk to Uzi Doorman (AI roleplay)\n" +
         "`!ping` → Test if the bot is alive\n" +
         "`!hello` → Greet the bot\n" +
-        "`!help` → Show this help message"
+        "`!helpcmd` → Show this help message"
     );
   }
 });
