@@ -1,6 +1,8 @@
 const { Client, GatewayIntentBits } = require("discord.js");
 const serverSettings = require("./serverSettings.js");
 const { logMessage, getCommands } = require("./shared.js");
+// Start web dashboard server
+require("./server.js");
 
 require("dotenv").config();
 
