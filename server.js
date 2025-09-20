@@ -85,4 +85,47 @@ const server = http.createServer((req, res) => {
       <p>Guild ID: ${guildId}</p>
       <p>User ID: ${userId}</p>
       <p>Bot Prefix: <input id="botPrefix" value="${settings.botPrefix}" /></p>
-      <p>Status Message: <input id="statusMessage" val
+      <p>Status Message: <input id="statusMessage" value="${settings.statusMessage}" /></p>
+      <button onclick="updateSettings()">Save</button>
+      ${accessLink}
+      <script>
+        function updateSettings() {
+          const prefix = document.getElementById('botPrefix').value;
+          const status = document.getElementById('statusMessage').value;
+          fetch('/update-settings', {
+            method:'POST',
+            headers:{'Content-Type':'application/x-www-form-urlencoded'},
+            body:'guildId=${guildId}&botPrefix='+encodeURIComponent(prefix)+'&statusMessage='+encodeURIComponent(status)
+          }).then(res=>res.text()).then(alert).catch(alert);
+        }
+      </script>
+    </body>
+    </html>`;
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
+
+  // --- Update settings POST ---
+  if (req.method === "POST" && req.url === "/update-settings") {
+    let body = "";
+    req.on("data", chunk => body += chunk.toString());
+    req.on("end", () => {
+      const params = querystring.parse(body);
+      const guildId = params.guildId;
+      if (!guildId) { res.writeHead(400); res.end("Guild ID missing"); return; }
+      serverSettingsModule.setSettings(guildId, { botPrefix: params.botPrefix, statusMessage: params.statusMessage });
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("✅ Settings updated!");
+    });
+    return;
+  }
+
+  // --- Serve static files fallback ---
+  const filePath = path.join(__dirname, "public", req.url === "/" ? "index.html" : req.url);
+  const ext = path.extname(filePath).toLowerCase();
+  const types = { ".html":"text/html",".js":"application/javascript",".css":"text/css",".json":"application/json" };
+  fs.exists(filePath, exists => exists ? serveFile(res, filePath, types[ext]||"text/plain") : serveFile(res, path.join(__dirname,"public","index.html"),"text/html"));
+});
+
+server.listen(PORT, () => console.log(`🌐 Server running at http://localhost:${PORT}`));
