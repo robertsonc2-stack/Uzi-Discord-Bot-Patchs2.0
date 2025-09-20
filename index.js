@@ -29,5 +29,5 @@ client.on("messageCreate", (message) => {
 });
 
 // Login using your bot token
-client.login("YOUR_BOT_TOKEN_HERE");
+client.login("MTQxMzg1MjQ5NTY4NzcxMjgxMg.GBQLYS.294-7AqVTKoimlKOg593hkxKeJCbRPBraGbcPI");
 
