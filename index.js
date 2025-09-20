@@ -10,16 +10,15 @@ const PREFIX = "!";
 // ------------------ LOGGER WITH DAILY ROTATION ------------------
 function getLogFile(date = null) {
   const targetDate = date || new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-  const logDir = path.join(__dirname, "logs");
+  return path.join(__dirname, "logs", `${targetDate}.log`);
+}
 
+function log(message) {
+  const logDir = path.join(__dirname, "logs");
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir);
   }
 
-  return path.join(logDir, `${targetDate}.log`);
-}
-
-function log(message) {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${message}\n`;
 
