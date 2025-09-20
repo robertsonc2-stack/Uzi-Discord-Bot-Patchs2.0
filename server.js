@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const querystring = require("querystring");
 const serverSettingsModule = require("./serverSettings.js");
-const commandModule = require("./commands.js"); // New module for commands list
+const { commands } = require("./index.js"); // import commands directly
 
 const PORT = 3000;
 const MY_USER_ID = "YOUR_USER_ID_HERE"; // Replace with your Discord ID
@@ -23,7 +23,6 @@ function serveFile(res, filePath, contentType, code = 200) {
 }
 
 const server = http.createServer((req, res) => {
-  // --- Main page ---
   if (req.method === "GET" && req.url === "/") {
     const html = `
     <!DOCTYPE html>
@@ -52,7 +51,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- Dashboard page ---
   if (req.method === "GET" && req.url.startsWith("/dashboard")) {
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
     const userId = parsedUrl.searchParams.get("userId");
@@ -68,8 +66,8 @@ const server = http.createServer((req, res) => {
     const isOwner = userId === MY_USER_ID;
     const readonly = isOwner ? "" : "readonly";
 
-    // Get all registered commands dynamically
-    const allCommands = Object.entries(commandModule.getCommands())
+    // Get all commands dynamically from index.js
+    const allCommands = Object.entries(commands)
       .map(([cmd, info]) => `<li><b>${cmd}</b>: ${info.description}</li>`).join("");
 
     const html = `
@@ -98,7 +96,7 @@ const server = http.createServer((req, res) => {
           fetch('/update-settings', {
             method:'POST',
             headers:{'Content-Type':'application/x-www-form-urlencoded'},
-            body:'guildId=${guildId}&botPrefix='+encodeURIComponent(prefix)+'&statusMessage='+encodeURIComponent(status)
+            body:'guildId=${guildId}&botPrefix='+encodeURIComponent(prefix)+'&statusMessage='+encodeURIComponent(status)+'&userId=${userId}'
           }).then(res=>res.text()).then(alert).catch(alert);
         }
       </script>
@@ -109,7 +107,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- Update settings POST ---
   if (req.method === "POST" && req.url === "/update-settings") {
     let body = "";
     req.on("data", chunk => body += chunk.toString());
@@ -130,7 +127,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- Serve static fallback ---
+  // Serve static fallback
   const filePath = path.join(__dirname, "public", req.url === "/" ? "index.html" : req.url);
   const ext = path.extname(filePath).toLowerCase();
   const types = { ".html":"text/html",".js":"application/javascript",".css":"text/css",".json":"application/json" };
@@ -138,3 +135,4 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => console.log(`🌐 Server running at http://localhost:${PORT}`));
+
