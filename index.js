@@ -48,7 +48,7 @@ async function checkJailbreak(message) {
 }
 // ---------------------------------------------------
 
-// Function to get Google AI replies acting like Uzi Doorman
+// Function to get Gemini AI replies acting like Uzi Doorman
 async function getUziGeminiReply(userMessage) {
   try {
     const response = await axios.post(
@@ -129,6 +129,7 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
 
 
 
