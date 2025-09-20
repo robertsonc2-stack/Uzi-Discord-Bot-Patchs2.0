@@ -36,7 +36,7 @@ Edit `.env` file:
 DISCORD_TOKEN=your_actual_bot_token_here
 CLIENT_ID=your_actual_client_id_here
 Not Needed Only For bots That Needs This
-OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 ```
 
 ### 4. Get Your Discord Bot Token

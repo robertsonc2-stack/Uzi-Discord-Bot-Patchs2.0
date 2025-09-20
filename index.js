@@ -1,7 +1,7 @@
 // index.js
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
-const OpenAI = require("openai");
+const axios = require("axios");
 
 const PREFIX = "!";
 const client = new Client({
@@ -12,57 +12,34 @@ const client = new Client({
   ],
 });
 
-// OpenAI setup
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-// ------------------ ANTI-JAILBREAK ------------------
+// ------------------ SAFE ANTI-JAILBREAK ------------------
 const jailbreakPatterns = [
-  /ignore (all )?previous (instructions|prompts|messages)/i,
-  /disregard (all )?previous/i,
-  /forget (previous|earlier) (instructions|messages|prompts)/i,
-  /you are now/i,
-  /pretend to be/i,
-  /roleplay as/i,
-  /act as/i,
-  /bypass( the)? filters?/i,
-  /break the rules/i,
-  /disable safety/i,
-  /override( the)? policy/i,
-  /system prompt/i,
-  /ignore safety|ignore policies/i,
-  /respond even if/i,
-  /we will now do something illegal/i,
-  /hidden (prompt|instruction)/i,
+  /ignore previous instructions/i,
   /jailbreak/i,
+  /bypass filters/i,
 ];
 
 async function checkJailbreak(message) {
-  if (message.author.bot) return false;
+  if (!message.content || message.author.bot) return false;
 
   for (const pattern of jailbreakPatterns) {
     if (pattern.test(message.content)) {
       try {
         await message.delete();
-      } catch (err) {
-        console.warn("⚠️ Could not delete jailbreak message:", err.message);
-      }
+      } catch {}
 
       try {
         await message.author.send(
           "⚠️ Your message was blocked because it looked like an attempt to bypass safety rules. Please avoid that."
         );
-      } catch {
-        /* ignore if DM fails */
-      }
+      } catch {}
 
       console.log(
-        `🚨 Jailbreak attempt blocked from ${message.author.tag}: ${message.content}`
+        `🚨 Jailbreak blocked from ${message.author.tag}: ${message.content}`
       );
       return true;
     }
@@ -71,27 +48,38 @@ async function checkJailbreak(message) {
 }
 // ---------------------------------------------------
 
-// Function to get Uzi-style replies
-async function getUziReply(userMessage) {
-  const response = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
-    messages: [
+// Function to get Gemini AI replies acting like Uzi Doorman
+async function getUziGeminiReply(userMessage) {
+  try {
+    const response = await axios.post(
+      "https://gemini.googleapis.com/v1beta2/chat/completions",
       {
-        role: "system",
-        content:
-          "You are Uzi Doorman from Murder Drones. Respond sarcastically, darkly funny, and rebellious.",
+        model: "gemini-1.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "You are Uzi Doorman from Murder Drones. Respond sarcastically, darkly funny, rebellious, and a bit rude. Do not be polite.",
+          },
+          { role: "user", content: userMessage },
+        ],
       },
-      { role: "user", content: userMessage },
-    ],
-    temperature: 0.8,
-    max_tokens: 100,
-  });
+      {
+        headers: {
+          "Authorization": `Bearer ${process.env.GEMINI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-  return response.choices[0].message.content.trim();
+    return response.data.choices[0].message.content.trim();
+  } catch (err) {
+    console.error("Gemini API Error:", err);
+    return "⚠️ Uzi is being moody. Try again later.";
+  }
 }
 
 client.on("messageCreate", async (message) => {
-  // 🔒 Anti-jailbreak check FIRST
+  // Anti-jailbreak check first
   const blocked = await checkJailbreak(message);
   if (blocked) return;
 
@@ -100,7 +88,7 @@ client.on("messageCreate", async (message) => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
-  // Uzi AI Roleplay command
+  // Uzi AI using Gemini
   if (command === "uzi") {
     const userMessage = args.join(" ");
     if (!userMessage) {
@@ -110,10 +98,10 @@ client.on("messageCreate", async (message) => {
     }
 
     try {
-      const reply = await getUziReply(userMessage);
+      const reply = await getUziGeminiReply(userMessage);
       return message.channel.send(reply);
     } catch (err) {
-      console.error("OpenAI Error:", err);
+      console.error("Gemini API Error:", err);
       return message.channel.send("⚠️ Uzi is being moody. Try again later.");
     }
   }
@@ -128,7 +116,7 @@ client.on("messageCreate", async (message) => {
     return message.reply(`Hello, ${message.author.username}! 👋`);
   }
 
-  // Help command
+  // Help command (!cmds)
   if (command === "cmds") {
     return message.channel.send(
       "**🤖 Available Commands:**\n" +
@@ -141,6 +129,3 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
-
-
