@@ -52,26 +52,26 @@ async function checkJailbreak(message) {
 async function getUziGeminiReply(userMessage) {
   try {
     const response = await axios.post(
-      "https://generativelanguage.googleapis.com/v1beta2/models/gemini-1.5-turbo:generateMessage",
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
-        prompt: [
+        contents: [
           {
-            role: "system",
-            content:
-              "You are Uzi Doorman from Murder Drones. Respond sarcastically, darkly funny, rebellious, and a bit rude. Do not be polite.",
+            role: "user",
+            parts: [{ text: `You are Uzi Doorman from Murder Drones. Respond sarcastically, darkly funny, rebellious, and a bit rude. User said: ${userMessage}` }],
           },
-          { role: "user", content: userMessage },
         ],
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
           "Content-Type": "application/json",
         },
       }
     );
 
-    return response.data?.candidates?.[0]?.content || "⚠️ Uzi is being moody.";
+    return (
+      response.data.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "⚠️ Uzi is being moody."
+    );
   } catch (err) {
     console.error(
       "Gemini API Error:",
@@ -90,8 +90,8 @@ client.on("messageCreate", async (message) => {
 
   // Automatic AI reply when bot is mentioned
   if (message.mentions.has(client.user)) {
-    const userMessage = message.content.replace(/<@!?(\d+)>/, "").trim(); // Remove mention
-    if (!userMessage) return; // Do nothing if no message after mention
+    const userMessage = message.content.replace(/<@!?(\d+)>/, "").trim();
+    if (!userMessage) return; // Do nothing if only mention with no text
 
     const reply = await getUziGeminiReply(userMessage);
     return message.reply(reply);
@@ -135,5 +135,3 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
-
