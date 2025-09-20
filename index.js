@@ -1,6 +1,6 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
-const { Configuration, OpenAIApi } = require("openai");
+const OpenAI = require("openai");
 
 const PREFIX = "!";
 const client = new Client({
@@ -11,33 +11,35 @@ const client = new Client({
   ],
 });
 
-// OpenAI configuration
-const configuration = new Configuration({
+// OpenAI client
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
 // Function to get AI reply as Uzi Doorman
-async function getUziReply(messageContent) {
+async function getUziReply(userMessage) {
   const prompt = `
 You are Uzi Doorman from Murder Drones. You are sarcastic, rebellious, confident, and have dark humor. 
 Reply to the user's message as Uzi would, in-character. Keep it short and snarky. 
-User said: "${messageContent}"
+User said: "${userMessage}"
 Uzi reply:
 `;
 
-  const response = await openai.createCompletion({
-    model: "text-davinci-003",
-    prompt: prompt,
-    max_tokens: 60,
+  const response = await openai.chat.completions.create({
+    model: "gpt-3.5-turbo",
+    messages: [
+      { role: "system", content: "You are Uzi Doorman from Murder Drones. Stay in character." },
+      { role: "user", content: userMessage },
+    ],
     temperature: 0.8,
+    max_tokens: 100,
   });
 
-  return response.data.choices[0].text.trim();
+  return response.choices[0].message.content.trim();
 }
 
 client.on("messageCreate", async (message) => {
@@ -75,3 +77,4 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
