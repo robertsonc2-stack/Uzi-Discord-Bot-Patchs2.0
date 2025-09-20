@@ -1,115 +1,110 @@
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
-require("dotenv").config();
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000;
 
-// Helper to serve JSON
-function sendJson(res, data, statusCode = 200) {
-  res.writeHead(statusCode, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(data));
+// Load existing settings from file or create empty object
+let allServerSettings = {};
+const settingsFile = path.join(__dirname, 'server-settings.json');
+if (fs.existsSync(settingsFile)) {
+  allServerSettings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
 }
 
-// Helper to serve static files
-function serveStatic(req, res) {
-  const publicDir = path.join(__dirname, "public");
-  let filePath = path.join(publicDir, req.url === "/" ? "/index.html" : req.url);
-  
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      res.writeHead(404, { "Content-Type": "text/plain" });
-      res.end("File not found");
-    } else {
-      // Basic MIME type handling
-      const ext = path.extname(filePath).toLowerCase();
-      const mimeTypes = {
-        ".html": "text/html",
-        ".js": "text/javascript",
-        ".css": "text/css",
-        ".json": "application/json",
-        ".png": "image/png",
-        ".jpg": "image/jpeg",
-        ".gif": "image/gif",
-        ".svg": "image/svg+xml",
-      };
-      res.writeHead(200, { "Content-Type": mimeTypes[ext] || "text/plain" });
-      res.end(content);
-    }
-  });
+// Helper to serve HTML page
+function serveSettingsPage(res, guildId) {
+  const settings = allServerSettings[guildId] || {
+    botPrefix: '!',
+    statusMessage: 'Uzi is online',
+    maxRestarts: 2
+  };
+
+  const html = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Server Settings</title>
+    <style>
+      body { font-family: Arial; background: #222; color: #eee; padding: 20px; }
+      h1 { color: #f39c12; }
+      label { display: block; margin: 10px 0 5px; }
+      input, button { padding: 5px; margin-bottom: 10px; width: 300px; }
+      button { cursor: pointer; background: #f39c12; border: none; color: #222; font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <h1>Settings for Server: ${guildId}</h1>
+    <form method="POST" action="/update-settings">
+      <input type="hidden" name="guildId" value="${guildId}" />
+      <label>Bot Prefix:</label>
+      <input type="text" name="botPrefix" value="${settings.botPrefix}" />
+      <label>Status Message:</label>
+      <input type="text" name="statusMessage" value="${settings.statusMessage}" />
+      <label>Max Restarts:</label>
+      <input type="number" name="maxRestarts" value="${settings.maxRestarts}" />
+      <br/>
+      <button type="submit">Save Settings</button>
+    </form>
+  </body>
+  </html>
+  `;
+
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.end(html);
 }
 
-// Create HTTP server
-const server = http.createServer(async (req, res) => {
-  const url = req.url;
-
-  // --- API Routes ---
-  if (url === "/api/bots" && req.method === "GET") {
-    return sendJson(res, [
-      { name: "Uzi-Doorman", description: "Roleplays as Uzi Doorman from Murder Drones", prefix: "!", status: "online" },
-      { name: "SD-N", description: "Roleplays as SD-N from Murder Drones", prefix: "!", status: "online" },
-      { name: "SD-V", description: "Roleplays as SD-V from Murder Drones", prefix: "!", status: "online" }
-    ]);
-  }
-
-  if (url === "/api/status" && req.method === "GET") {
-    return sendJson(res, {
-      status: "running",
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString()
+// Parse POST data
+function parsePostData(req, callback) {
+  let body = '';
+  req.on('data', chunk => body += chunk.toString());
+  req.on('end', () => {
+    const data = {};
+    body.split('&').forEach(pair => {
+      const [key, value] = pair.split('=');
+      data[decodeURIComponent(key)] = decodeURIComponent((value || '').replace(/\+/g, ' '));
     });
-  }
-
-  if (url === "/api/discord-status" && req.method === "GET") {
-    try {
-      const client = require("./index.js");
-      return sendJson(res, {
-        loggedIn: client.user ? true : false,
-        username: client.user ? client.user.tag : "Not logged in",
-        guilds: client.guilds ? client.guilds.cache.size : 0,
-        users: client.users ? client.users.cache.size : 0
-      });
-    } catch (err) {
-      return sendJson(res, { loggedIn: false, error: err.message });
-    }
-  }
-
-  if (url === "/health" && req.method === "GET") {
-    return sendJson(res, { status: "healthy" });
-  }
-
-  // --- Serve Static Files or SPA ---
-  const publicDir = path.join(__dirname, "public");
-  const indexFile = path.join(publicDir, "index.html");
-
-  fs.stat(path.join(publicDir, req.url), (err, stats) => {
-    if (!err && stats.isFile()) {
-      return serveStatic(req, res);
-    } else {
-      // Serve index.html for SPA routing
-      fs.readFile(indexFile, (err, content) => {
-        if (err) {
-          res.writeHead(500, { "Content-Type": "text/plain" });
-          res.end("Something broke!");
-        } else {
-          res.writeHead(200, { "Content-Type": "text/html" });
-          res.end(content);
-        }
-      });
-    }
+    callback(data);
   });
-});
-
-// --- Start Server ---
-server.listen(PORT, () => {
-  console.log(`Web server running on port ${PORT}`);
-  console.log(`Visit http://localhost:${PORT} to view the bot dashboard`);
-});
-
-// --- Start Discord Bot ---
-try {
-  require("./index.js");
-  console.log("Discord bot started successfully");
-} catch (err) {
-  console.error("Failed to start Discord bot:", err);
 }
+
+// HTTP server
+const server = http.createServer((req, res) => {
+  if (req.method === 'GET') {
+    // Require ?guildId=<id> query
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const guildId = url.searchParams.get('guildId');
+    if (!guildId) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      return res.end('❌ Missing guildId parameter in URL. Example: /?guildId=YOUR_SERVER_ID');
+    }
+    return serveSettingsPage(res, guildId);
+  }
+
+  if (req.method === 'POST' && req.url === '/update-settings') {
+    parsePostData(req, data => {
+      const guildId = data.guildId;
+      if (!guildId) return res.end('❌ Missing guildId');
+
+      allServerSettings[guildId] = {
+        botPrefix: data.botPrefix || '!',
+        statusMessage: data.statusMessage || 'Uzi is online',
+        maxRestarts: parseInt(data.maxRestarts) || 2
+      };
+
+      fs.writeFileSync(settingsFile, JSON.stringify(allServerSettings, null, 2));
+
+      res.writeHead(302, { Location: `/?guildId=${guildId}` });
+      res.end();
+    });
+  } else {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('404 Not Found');
+  }
+});
+
+server.listen(PORT, () => console.log(`⚡ Server running on port ${PORT}`));
+
+module.exports = {
+  getSettings: (guildId) => allServerSettings[guildId] || null
+};
