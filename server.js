@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const querystring = require("querystring");
 const serverSettingsModule = require("./serverSettings.js");
+const commandModule = require("./commands.js"); // New module for commands list
 
 const PORT = 3000;
 const MY_USER_ID = "YOUR_USER_ID_HERE"; // Replace with your Discord ID
@@ -64,10 +65,12 @@ const server = http.createServer((req, res) => {
     }
 
     const settings = serverSettingsModule.getSettings(guildId);
-
-    // Check if the user is the owner (editable) or not (read-only)
     const isOwner = userId === MY_USER_ID;
     const readonly = isOwner ? "" : "readonly";
+
+    // Get all registered commands dynamically
+    const allCommands = Object.entries(commandModule.getCommands())
+      .map(([cmd, info]) => `<li><b>${cmd}</b>: ${info.description}</li>`).join("");
 
     const html = `
     <!DOCTYPE html>
@@ -77,9 +80,17 @@ const server = http.createServer((req, res) => {
       <h1>Server Dashboard</h1>
       <p>Guild ID: ${guildId}</p>
       <p>User ID: ${userId}</p>
+
+      <h2>Bot Settings</h2>
       <p>Bot Prefix: <input id="botPrefix" value="${settings.botPrefix}" ${readonly} /></p>
       <p>Status Message: <input id="statusMessage" value="${settings.statusMessage}" ${readonly} /></p>
       ${isOwner ? '<button onclick="updateSettings()">Save</button>' : '<p>🔒 You cannot edit these settings</p>'}
+
+      <h2>Available Commands</h2>
+      <ul>
+        ${allCommands}
+      </ul>
+
       <script>
         function updateSettings() {
           const prefix = document.getElementById('botPrefix').value;
@@ -105,7 +116,7 @@ const server = http.createServer((req, res) => {
     req.on("end", () => {
       const params = querystring.parse(body);
       const guildId = params.guildId;
-      const userId = querystring.parse(body).userId; // optional if you want extra validation
+      const userId = params.userId || "";
       if (userId !== MY_USER_ID) { 
         res.writeHead(403, { "Content-Type": "text/plain" });
         res.end("❌ Only the owner can update settings");
@@ -127,4 +138,3 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => console.log(`🌐 Server running at http://localhost:${PORT}`));
-
