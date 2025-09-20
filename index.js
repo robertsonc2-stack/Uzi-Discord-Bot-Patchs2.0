@@ -3,11 +3,27 @@ require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const { spawn } = require("child_process");
 const serverSettings = require("./serverSettings");
-const { logEvent } = require("./shared");
 
 // --- Start server.js before bot ---
 const server = spawn("node", ["server.js"], { stdio: "inherit" });
 server.on("error", (err) => console.error("❌ Failed to start server.js:", err));
+
+// --- Local log function ---
+function logEvent(message) {
+  const time = new Date().toLocaleTimeString();
+  const logMsg = `[${time}] ${message}`;
+  console.log(logMsg);
+
+  // Optional: push to server.js dashboard if addLog exists
+  try {
+    const serverModule = require("./server.js");
+    if (serverModule.addLog) serverModule.addLog(logMsg);
+  } catch (err) {
+    // ignore if server.js not ready yet
+  }
+
+  return logMsg;
+}
 
 // --- Create bot client ---
 const client = new Client({
@@ -42,7 +58,6 @@ client.once("ready", () => {
     ) {
       try {
         client.user.setActivity(newSettings.statusMessage, { type: 3 });
-        console.log("🔄 Bot status updated to:", newSettings.statusMessage);
         logEvent(`Bot status updated to: ${newSettings.statusMessage}`);
       } catch (err) {
         console.error("Failed to update bot activity:", err);
@@ -78,7 +93,7 @@ const commands = {
   logs: {
     description: "View logs (DM only)",
     run: (msg) => {
-      msg.author.send("📂 Logs are available in the dashboard at /logs");
+      msg.author.send("📂 Logs are available in the dashboard at /dashboard");
     },
   },
   dashboard: {
@@ -117,4 +132,3 @@ client.login(process.env.DISCORD_TOKEN).catch((err) => {
   console.error("❌ Failed to login:", err);
   process.exit(1);
 });
-
