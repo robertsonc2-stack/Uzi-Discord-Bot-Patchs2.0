@@ -1,6 +1,6 @@
 # Uzi-Discord-Bot
 
-WARNING THIS README FILE IS NOT UP TO DATE DO NOT USE THSI BOT OR THE BOT YOU MAKE
+WARNING THIS README FILE IS NOT UP TO DATE DO NOT USE THIS BOT OR THE BOT YOU MAKE
 
 A Discord bot featuring a character from Murder Drones Called Uzi Doorman for roleplay interactions.
 
@@ -8,7 +8,7 @@ A Discord bot featuring a character from Murder Drones Called Uzi Doorman for ro
 
 - **Slash Commands**: Modern Discord interactions with !commands
 - **Roleplay Character**: Uzi Doorman with unique personalities
-- **Web Dashboard**: Simple web interface to view bot status
+- **Web Dashboard**: Simple web interface to view bot status (HAS NOT TESTED YET)
 - **Multiple Response Types**: Each character has unique response pools
 - **Easy Setup**: Simple configuration with environment variables
 
@@ -63,12 +63,12 @@ https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scop
 node index.js
 ```
 
-#### Option B: Run only the Discord bot
+#### Option B: Run only the Discord bot might be useless
 ```bash
 npm run bot
 ```
 
-#### Option C: Run in development mode (both services)
+#### Option C: Run in development mode (both services) might be useless
 ```bash
 npm run dev
 ```
