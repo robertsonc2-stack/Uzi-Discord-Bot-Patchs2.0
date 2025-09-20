@@ -1,19 +1,43 @@
 // serverSettings.js
-const serverSettings = {};  // { guildId: { botPrefix, statusMessage } }
-const accessControl = {};   // { guildId: [userId1, userId2] }
+const fs = require("fs");
+const path = require("path");
 
-module.exports = {
-  getSettings: (guildId) => serverSettings[guildId] || { botPrefix: "!", statusMessage: "Uzi is online" },
-  setSettings: (guildId, settings) => {
-    serverSettings[guildId] = { ...module.exports.getSettings(guildId), ...settings };
-  },
-  getAllowedUsers: (guildId) => accessControl[guildId] || [],
-  addAllowedUser: (guildId, userId) => {
-    if (!accessControl[guildId]) accessControl[guildId] = [];
-    if (!accessControl[guildId].includes(userId)) accessControl[guildId].push(userId);
-  },
-  removeAllowedUser: (guildId, userId) => {
-    if (!accessControl[guildId]) return;
-    accessControl[guildId] = accessControl[guildId].filter(id => id !== userId);
+const filePath = path.join(__dirname, "settings.json");
+let settings = {};
+let onChangeCallback = null;
+
+// Load settings if file exists
+if (fs.existsSync(filePath)) {
+  try {
+    settings = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    settings = {};
   }
-};
+}
+
+function saveSettings() {
+  fs.writeFileSync(filePath, JSON.stringify(settings, null, 2));
+  if (onChangeCallback) {
+    for (const guildId in settings) {
+      onChangeCallback(guildId, settings[guildId]);
+    }
+  }
+}
+
+function getSettings(guildId) {
+  if (!settings[guildId]) {
+    settings[guildId] = { botPrefix: "!", statusMessage: "Watching over the server" };
+  }
+  return settings[guildId];
+}
+
+function setSettings(guildId, newSettings) {
+  settings[guildId] = { ...getSettings(guildId), ...newSettings };
+  saveSettings();
+}
+
+function setOnChange(cb) {
+  onChangeCallback = cb;
+}
+
+module.exports = { getSettings, setSettings, setOnChange };
