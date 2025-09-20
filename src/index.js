@@ -3,17 +3,17 @@ const bots = [
     {
         name: "Uzi-Doorman",
         description: "Roleplays as Uzi Doorman.",
-        prefix: "/"
+        prefix: "!"
     },
     {
         name: "SD-N",
         description: "Roleplays as SD-N.",
-        prefix: "/"
+        prefix: "!"
     },
     {
         name: "SD-V",
         description: "Roleplays as SD-V.",
-        prefix: "/"
+        prefix: "!"
     }
 ];
 
