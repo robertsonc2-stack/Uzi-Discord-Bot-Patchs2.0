@@ -8,15 +8,15 @@ const path = require("path");
 const PREFIX = "!";
 
 // ------------------ LOGGER WITH DAILY ROTATION ------------------
-function getLogFile() {
-  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+function getLogFile(date = null) {
+  const targetDate = date || new Date().toISOString().split("T")[0]; // YYYY-MM-DD
   const logDir = path.join(__dirname, "logs");
 
   if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir);
   }
 
-  return path.join(logDir, `${today}.log`);
+  return path.join(logDir, `${targetDate}.log`);
 }
 
 function log(message) {
@@ -168,7 +168,8 @@ client.on("messageCreate", async (message) => {
         "`!ping` → Test if the bot is alive\n" +
         "`!status` → Get a sarcastic AI-powered Uzi status\n" +
         "`!cmds` → Show this help message\n" +
-        "`!logs` → (Owner only) Get today's log file"
+        "`!logs` → (Owner only) Get today's log file\n" +
+        "`!logs YYYY-MM-DD` → (Owner only) Get log file for a specific date"
     );
   }
 
@@ -179,21 +180,28 @@ client.on("messageCreate", async (message) => {
       return message.reply("⚠️ You don’t have permission to use this command.");
     }
 
-    const logFile = getLogFile();
+    // Check if user requested a specific date
+    const targetDate = args[0] || null;
+    const logFile = getLogFile(targetDate);
+
     if (fs.existsSync(logFile)) {
       try {
         await message.author.send({
-          content: "📑 Here’s today’s log file:",
+          content: `📑 Here’s the log file for **${
+            targetDate || "today"
+          }**:`,
           files: [logFile],
         });
-        log(`✅ Sent logs to owner ${message.author.tag}`);
+        log(`✅ Sent ${targetDate || "today"} logs to owner ${message.author.tag}`);
       } catch (err) {
         log(`🔴 Error sending logs: ${err.message}`);
         return message.reply("⚠️ Couldn’t send logs in DM.");
       }
     } else {
-      log("⚠️ No log file found for today");
-      return message.reply("⚠️ No log file found for today.");
+      log(`⚠️ No log file found for ${targetDate || "today"}`);
+      return message.reply(
+        `⚠️ No log file found for ${targetDate || "today"}.`
+      );
     }
   }
 });
