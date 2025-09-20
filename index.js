@@ -33,7 +33,9 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages,
   ],
+  partials: ["CHANNEL"], // Needed for DMs
 });
 
 client.once("ready", () => {
@@ -165,10 +167,35 @@ client.on("messageCreate", async (message) => {
       "**🤖 Available Commands:**\n" +
         "`!ping` → Test if the bot is alive\n" +
         "`!status` → Get a sarcastic AI-powered Uzi status\n" +
-        "`!cmds` → Show this help message"
+        "`!cmds` → Show this help message\n" +
+        "`!logs` → (Owner only) Get today's log file"
     );
+  }
+
+  // Logs command (Owner only)
+  if (command === "logs") {
+    if (message.author.id !== process.env.OWNER_ID) {
+      log(`⛔ Unauthorized logs attempt by ${message.author.tag}`);
+      return message.reply("⚠️ You don’t have permission to use this command.");
+    }
+
+    const logFile = getLogFile();
+    if (fs.existsSync(logFile)) {
+      try {
+        await message.author.send({
+          content: "📑 Here’s today’s log file:",
+          files: [logFile],
+        });
+        log(`✅ Sent logs to owner ${message.author.tag}`);
+      } catch (err) {
+        log(`🔴 Error sending logs: ${err.message}`);
+        return message.reply("⚠️ Couldn’t send logs in DM.");
+      }
+    } else {
+      log("⚠️ No log file found for today");
+      return message.reply("⚠️ No log file found for today.");
+    }
   }
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
