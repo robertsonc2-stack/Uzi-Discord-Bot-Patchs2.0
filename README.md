@@ -61,19 +61,13 @@ https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scop
 node index.js
 ```
 
-```
 
 ## Available Commands
-
-### Slash Commands
-- `!ping` - Check if the bot is responsive
-- `!uzi` - Get a response from Uzi Doorman
-- `/help` - Show all available commands (NOT MADE YET)
 
 ### Legacy Commands (prefix: !)
 - `!ping` - Check if the bot is responsive
 - `!uzi` - Get a response from Uzi Doorman
-- `!help` - Show available commands (NOT MADE YET)
+- `!cmds` - Show available commands 
 
 ## Character Personalities
 
