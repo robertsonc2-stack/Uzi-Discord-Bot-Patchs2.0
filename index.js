@@ -12,6 +12,34 @@ const client = new Client({
   ]
 });
 
+// --- Command Registry ---
+const commands = {};
+
+// Helper to register commands
+function registerCommand(name, description, callback) {
+  commands[name] = { description, callback };
+}
+
+// --- Register Commands ---
+registerCommand("status", "Show current bot status", (message, args, settings) => {
+  message.channel.send(`💬 Current status: ${settings.statusMessage}`);
+});
+
+registerCommand("dashboard", "Open server dashboard (auto-detects your guild & user ID)", (message, args, settings) => {
+  const dashboardURL = `http://localhost:3000/?guildId=${message.guild.id}&userId=${message.author.id}`;
+  message.channel.send(`🔗 Access your dashboard: ${dashboardURL}`);
+});
+
+registerCommand("cmds", "Show all commands", (message) => {
+  const prefix = serverSettingsModule.getSettings(message.guild.id).botPrefix || "!";
+  let reply = "**🤖 Commands:**\n";
+  for (const cmd in commands) {
+    reply += `\`${prefix}${cmd}\` → ${commands[cmd].description}\n`;
+  }
+  reply += "\n**Logging Commands:**\n📥 All command usage is logged to the console.";
+  message.channel.send(reply);
+});
+
 // --- Ready Event ---
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
@@ -21,37 +49,22 @@ client.once("ready", () => {
 client.on("messageCreate", async (message) => {
   if (message.author.bot || !message.guild) return;
 
-  const guildId = message.guild.id;
-  const settings = serverSettingsModule.getSettings(guildId);
+  const settings = serverSettingsModule.getSettings(message.guild.id);
   const prefix = settings.botPrefix || "!";
 
-  // Only commands with prefix
   if (!message.content.startsWith(prefix)) return;
 
   const args = message.content.slice(prefix.length).trim().split(/ +/);
-  const command = args.shift().toLowerCase();
+  const commandName = args.shift().toLowerCase();
 
-  console.log(`📥 Command from ${message.author.tag}: ${command}`);
-
-  // --- Commands ---
-  if (command === "status") {
-    message.channel.send(`💬 Current status: ${settings.statusMessage}`);
-  }
-
-  if (command === "cmds") {
-    message.channel.send(
-      `**🤖 Commands:**\n` +
-      `\`${prefix}status\` → show current status\n` +
-      `\`${prefix}cmds\` → list commands\n` +
-      `\`${prefix}dashboard\` → open dashboard`
-    );
-  }
-
-  // Dashboard auto-fill info
-  if (command === "dashboard") {
-    const userId = message.author.id;
-    const dashboardURL = `http://localhost:3000/?guildId=${guildId}&userId=${userId}`;
-    return message.channel.send(`🔗 Access your dashboard: ${dashboardURL}`);
+  if (commands[commandName]) {
+    console.log(`📥 Command from ${message.author.tag}: ${commandName}`);
+    try {
+      commands[commandName].callback(message, args, settings);
+    } catch (err) {
+      console.error("Command error:", err);
+      message.channel.send("⚠️ There was an error executing that command.");
+    }
   }
 });
 
@@ -67,7 +80,7 @@ setInterval(() => {
       }
     }
   });
-}, 10000); // every 10 seconds
+}, 10000);
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN);
