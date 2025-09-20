@@ -37,6 +37,14 @@ function addLog(entry) {
   console.log(msg);
 }
 
+// --- Placeholder for index.js function ---
+let updateBotStatusFunction = null;
+
+// --- Set update function from index.js ---
+function setUpdateBotStatus(fn) {
+  updateBotStatusFunction = fn;
+}
+
 // --- Start server ---
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
@@ -171,6 +179,10 @@ const server = http.createServer((req, res) => {
     }
     const msg = parsedUrl.query.msg || "";
     botSettings.statusMessage = msg;
+
+    // --- Call index.js function to update bot status ---
+    if (updateBotStatusFunction) updateBotStatusFunction();
+
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end(`✅ Status updated to: ${msg}`);
     return;
@@ -195,5 +207,12 @@ server.listen(PORT, () => {
   addLog(`Server started on port ${PORT}`);
 });
 
-// Export functions for index.js
-module.exports = { addLog, commands, botSettings, get authorizedUserId() { return authorizedUserId; } };
+// --- Exports for index.js ---
+module.exports = {
+  addLog,
+  commands,
+  botSettings,
+  setUpdateBotStatus,
+  get authorizedUserId() { return authorizedUserId; }
+};
+
