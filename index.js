@@ -1,11 +1,8 @@
-// index.js
+require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
+const { Configuration, OpenAIApi } = require("openai");
 
-// === CONFIG ===
-const PREFIX = "!"; // Command prefix
-const TOKEN = "MTQxMzg1MjQ5NTY4NzcxMjgxMg.Gvi5tH.T-hI7yAaPm138R04YvKKBpn7hTnpPosHPOEZOQ"; // Replace with your bot token
-
-// Create the Discord client
+const PREFIX = "!";
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -14,46 +11,60 @@ const client = new Client({
   ],
 });
 
-// Event: Bot is ready
+// OpenAI configuration
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
+
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-// Event: Message received
-client.on("messageCreate", (message) => {
-  // Ignore bots and messages without prefix
+// Function to get AI reply as Uzi Doorman
+async function getUziReply(messageContent) {
+  const prompt = `
+You are Uzi Doorman from Murder Drones. You are sarcastic, rebellious, confident, and have dark humor. 
+Reply to the user's message as Uzi would, in-character. Keep it short and snarky. 
+User said: "${messageContent}"
+Uzi reply:
+`;
+
+  const response = await openai.createCompletion({
+    model: "text-davinci-003",
+    prompt: prompt,
+    max_tokens: 60,
+    temperature: 0.8,
+  });
+
+  return response.data.choices[0].text.trim();
+}
+
+client.on("messageCreate", async (message) => {
   if (message.author.bot || !message.content.startsWith(PREFIX)) return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
-  // --- Uzi Doorman Roleplay Command ---
   if (command === "uzi") {
     const userMessage = args.join(" ");
-
-    // Uzi-style responses
-    const uziResponses = [
-      `😎 Uzi: "${userMessage}? Seriously? That’s nothing for me."`,
-      `😏 Uzi: "Oh great, '${userMessage}'. Classic."`,
-      `💀 Uzi: "Honestly, I don’t care about '${userMessage}'."`,
-      `🙄 Uzi: "Yeah right… '${userMessage}', sure."`,
-      `🔫 Uzi: "‘${userMessage}’? Heh. Bring it on."`,
-      `😈 Uzi: "You really think '${userMessage}' will stop me?"`,
-    ];
-
-    // If no message, give a default snarky line
     if (!userMessage) {
-      uziResponses.push(
-        "😒 Uzi: 'What do you want me to say, huh? Make it quick.'"
+      return message.channel.send(
+        "😒 Uzi: 'What do you want me to say? Make it quick.'"
       );
     }
 
-    // Pick a random response
-    const reply = uziResponses[Math.floor(Math.random() * uziResponses.length)];
-    return message.channel.send(reply);
+    try {
+      const reply = await getUziReply(userMessage);
+      return message.channel.send(reply);
+    } catch (err) {
+      console.error(err);
+      return message.channel.send(
+        "⚠️ Uzi is too busy being sarcastic right now. Try again."
+      );
+    }
   }
 
-  // Optional: other commands
   if (command === "ping") {
     return message.reply("🏓 Pong!");
   }
@@ -63,7 +74,4 @@ client.on("messageCreate", (message) => {
   }
 });
 
-// Login the bot
-client.login(TOKEN);
-
-
+client.login(process.env.DISCORD_TOKEN);
