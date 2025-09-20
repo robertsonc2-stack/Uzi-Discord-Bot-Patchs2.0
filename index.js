@@ -1,114 +1,120 @@
-const { Client, GatewayIntentBits } = require("discord.js");
-const serverSettings = require("./serverSettings.js");
-const { logMessage, getCommands } = require("./shared.js");
-// Start web dashboard server
-require("./server.js");
-
+// index.js
 require("dotenv").config();
+const { Client, GatewayIntentBits } = require("discord.js");
+const { spawn } = require("child_process");
+const serverSettings = require("./serverSettings");
+const { logEvent } = require("./shared");
 
+// --- Start server.js before bot ---
+const server = spawn("node", ["server.js"], { stdio: "inherit" });
+server.on("error", (err) => console.error("❌ Failed to start server.js:", err));
+
+// --- Create bot client ---
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
 });
 
-const TOKEN = process.env.DISCORD_TOKEN;
-const OWNER_ID = process.env.OWNER_ID || "123456789012345678"; // replace with your ID
+// --- Bot ready event ---
+client.once("ready", () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  logEvent(`Bot logged in as ${client.user.tag}`);
 
-// --- Command definitions ---
-const commands = {
-  cmds: {
-    description: "List all commands",
-    execute: (message) => {
-      const allCommands = Object.entries(commands)
-        .map(([cmd, info]) => `**!${cmd}** — ${info.description}`)
-        .join("\n");
-      message.reply("📜 **Available Commands:**\n" + allCommands);
-      logMessage(`📜 ${message.author.tag} used !cmds`);
+  // Apply initial status
+  const settings = serverSettings.getSettings("global");
+  if (settings.statusMessage) {
+    try {
+      client.user.setActivity(settings.statusMessage, { type: 3 });
+    } catch (err) {
+      console.error("Failed to set bot activity:", err);
     }
-  },
-  dashboard: {
-    description: "Get link to the bot dashboard",
-    execute: (message) => {
-      const url = `http://localhost:3000/dashboard?userId=${message.author.id}&guildId=${message.guild.id}`;
-      message.reply(`🌐 Open the dashboard here: ${url}`);
-      logMessage(`🌐 ${message.author.tag} accessed the dashboard`);
-    }
-  },
-  logs: {
-    description: "Show recent logs (owner only)",
-    execute: (message) => {
-      if (message.author.id !== OWNER_ID) {
-        return message.reply("❌ You are not authorized to view logs.");
+  }
+
+  // Watch for settings changes dynamically
+  setInterval(() => {
+    const newSettings = serverSettings.getSettings("global");
+    if (
+      newSettings.statusMessage &&
+      client.user.presence.activities[0]?.name !== newSettings.statusMessage
+    ) {
+      try {
+        client.user.setActivity(newSettings.statusMessage, { type: 3 });
+        console.log("🔄 Bot status updated to:", newSettings.statusMessage);
+        logEvent(`Bot status updated to: ${newSettings.statusMessage}`);
+      } catch (err) {
+        console.error("Failed to update bot activity:", err);
       }
-      const logs = require("./shared.js").getLogs().slice(-10).join("\n");
-      message.reply("📝 **Recent Logs:**\n" + (logs || "No logs yet."));
-      logMessage(`📝 ${message.author.tag} accessed logs`);
     }
+  }, 5000);
+});
+
+// --- Commands ---
+const PREFIX = "!";
+const commands = {
+  ping: {
+    description: "Test if bot is alive",
+    run: (msg) => msg.reply("🏓 Pong!"),
   },
   status: {
-    description: "Check bot status",
-    execute: (message) => {
-      message.reply(`✅ Bot is running as **${client.user.tag}**`);
-      logMessage(`✅ ${message.author.tag} checked status`);
-    }
-  }
+    description: "Show bot status",
+    run: (msg) =>
+      msg.reply(
+        `✅ Online as ${client.user.tag}\n🌍 Servers: ${client.guilds.cache.size}`
+      ),
+  },
+  cmds: {
+    description: "Show all commands",
+    run: (msg) => {
+      let list = "**🤖 Commands:**\n";
+      for (const [name, cmd] of Object.entries(commands)) {
+        list += `\`!${name}\` → ${cmd.description}\n`;
+      }
+      msg.channel.send(list);
+    },
+  },
+  logs: {
+    description: "View logs (DM only)",
+    run: (msg) => {
+      msg.author.send("📂 Logs are available in the dashboard at /logs");
+    },
+  },
+  dashboard: {
+    description: "Link to dashboard",
+    run: (msg) =>
+      msg.reply("🌐 Open the bot dashboard: http://localhost:3000/dashboard"),
+  },
 };
 
-// --- AI Response Hook ---
-async function aiReply(prompt) {
-  // 🔹 Replace this with Google AI API call later
-  return `🤖 AI says: "${prompt}" (placeholder reply)`;
-}
-
-// --- Bot Events ---
-client.once("ready", () => {
-  console.log(`🤖 Logged in as ${client.user.tag}`);
-  logMessage(`✅ Bot started as ${client.user.tag}`);
-
-  // Set status per guild
-  setInterval(() => {
-    client.guilds.cache.forEach((guild) => {
-      const settings = serverSettings.getSettings(guild.id);
-      client.user.setActivity(settings.statusMessage, { type: 3 }).catch(() => {});
-    });
-  }, 60000);
-});
-
-client.on("messageCreate", async (message) => {
+// --- Message listener ---
+client.on("messageCreate", (message) => {
   if (message.author.bot) return;
 
-  const settings = serverSettings.getSettings(message.guild?.id || "default");
-  const prefix = settings.botPrefix || "!";
+  // Only allow commands with prefix
+  if (!message.content.startsWith(PREFIX)) return;
 
-  // --- Command Handling ---
-  if (message.content.startsWith(prefix)) {
-    const args = message.content.slice(prefix.length).trim().split(/\s+/);
-    const commandName = args.shift().toLowerCase();
+  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+  const commandName = args.shift().toLowerCase();
+  const command = commands[commandName];
 
-    if (commands[commandName]) {
-      try {
-        await commands[commandName].execute(message, args);
-      } catch (err) {
-        console.error(err);
-        message.reply("❌ Error executing command.");
-      }
-    }
-    return;
-  }
+  if (!command) return;
 
-  // --- Mention Reply w/ AI ---
-  if (message.mentions.has(client.user)) {
-    const userPrompt = message.content.replace(/<@!?\\d+>/, "").trim();
-    const reply = await aiReply(userPrompt || "Hello!");
-    message.reply(reply);
-    logMessage(`💬 AI replied to ${message.author.tag}`);
+  try {
+    command.run(message, args);
+    logEvent(
+      `Command used: !${commandName} by ${message.author.tag} in #${message.channel.name}`
+    );
+  } catch (err) {
+    console.error("Command error:", err);
+    message.reply("⚠️ Error running command.");
   }
 });
 
-// --- Expose commands to server.js ---
-module.exports = { client, commands };
-
-// --- Start Bot ---
-client.login(TOKEN).catch((err) => {
+// --- Login ---
+client.login(process.env.DISCORD_TOKEN).catch((err) => {
   console.error("❌ Failed to login:", err);
   process.exit(1);
 });
+
