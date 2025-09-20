@@ -1,5 +1,3 @@
-
-
 ## About the Bot
 
 **Uzi-Discord-Bot** is a Discord bot inspired by the character Uzi Doorman from Murder Drones. The bot is designed for roleplay interactions, fun responses, and engaging Discord server members. It features both legacy and modern slash commands, unique character personalities, and a simple setup process.
@@ -14,8 +12,10 @@
 ### Legacy Commands (prefix: !)
 
 - `!ping` — Check if the bot is responsive
-- `!uzi` — Get a response from Uzi Doorman
 - `!cmds` — Show available commands
+- `!logs` — (Owner only) Retrieve today's log file
+- `!logs YYYY-MM-DD` — (Owner only) Retrieve log file for a specific date
+- `!logs list` — (Owner only) List all available log files
 
 ## Character Personalities
 
