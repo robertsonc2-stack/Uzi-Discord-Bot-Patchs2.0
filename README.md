@@ -30,7 +30,7 @@ To build your Discord bot, follow these steps:
    ```
 
 2. **Configure environment variables**
-   - Copy `.env.example` to `.env` and fill in your bot token and client ID.
+   - Copy `.env.example` to `.env` and fill in your bot token and client ID and Gemini api key.
 
 
 3. **Run the bot**
