@@ -5,11 +5,11 @@ const PORT = 3000;
 
 // --- Commands ---
 const commands = {
-  !ping: "Test if bot is alive",
-  !status: "Show bot status",
-  !cmds: "Show all commands",
-  !logs: "View logs (DM only)",
-  !dashboard: "Open the bot dashboard",
+  ping: "Test if bot is alive",
+  status: "Show bot status",
+  cmds: "Show all commands",
+  logs: "View logs (DM only)",
+  dashboard: "Open the bot dashboard",
 };
 
 // --- Logs storage ---
