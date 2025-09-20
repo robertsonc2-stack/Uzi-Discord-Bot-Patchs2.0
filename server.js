@@ -9,7 +9,6 @@ const serverSettingsModule = require("./serverSettings.js");
 const PORT = 3000;
 const MY_USER_ID = "YOUR_USER_ID_HERE"; // Replace with your Discord ID
 
-// Serve static files
 function serveFile(res, filePath, contentType, code = 200) {
   fs.readFile(filePath, (err, content) => {
     if (err) {
@@ -23,7 +22,7 @@ function serveFile(res, filePath, contentType, code = 200) {
 }
 
 const server = http.createServer((req, res) => {
-  // --- Serve main dashboard page ---
+  // --- Main page ---
   if (req.method === "GET" && req.url === "/") {
     const html = `
     <!DOCTYPE html>
@@ -37,7 +36,6 @@ const server = http.createServer((req, res) => {
         <button type="button" onclick="goDashboard()">Go to Dashboard</button>
       </form>
       <script>
-        // Auto-fill your user ID
         document.getElementById('userId').value = '${MY_USER_ID}';
         function goDashboard() {
           const guildId = document.getElementById('guildId').value;
@@ -65,16 +63,11 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // Access check
-    if (!serverSettingsModule.getAllowedUsers(guildId).includes(userId)) {
-      res.writeHead(403, { "Content-Type": "text/plain" });
-      res.end("❌ You do not have permission");
-      return;
-    }
-
     const settings = serverSettingsModule.getSettings(guildId);
-    const accessLink = userId === MY_USER_ID
-      ? `<p><a href="/access-control" style="color:#1DB954;">Manage Allowed Users</a></p>` : "";
+
+    // Check if the user is the owner (editable) or not (read-only)
+    const isOwner = userId === MY_USER_ID;
+    const readonly = isOwner ? "" : "readonly";
 
     const html = `
     <!DOCTYPE html>
@@ -84,10 +77,9 @@ const server = http.createServer((req, res) => {
       <h1>Server Dashboard</h1>
       <p>Guild ID: ${guildId}</p>
       <p>User ID: ${userId}</p>
-      <p>Bot Prefix: <input id="botPrefix" value="${settings.botPrefix}" /></p>
-      <p>Status Message: <input id="statusMessage" value="${settings.statusMessage}" /></p>
-      <button onclick="updateSettings()">Save</button>
-      ${accessLink}
+      <p>Bot Prefix: <input id="botPrefix" value="${settings.botPrefix}" ${readonly} /></p>
+      <p>Status Message: <input id="statusMessage" value="${settings.statusMessage}" ${readonly} /></p>
+      ${isOwner ? '<button onclick="updateSettings()">Save</button>' : '<p>🔒 You cannot edit these settings</p>'}
       <script>
         function updateSettings() {
           const prefix = document.getElementById('botPrefix').value;
@@ -113,6 +105,12 @@ const server = http.createServer((req, res) => {
     req.on("end", () => {
       const params = querystring.parse(body);
       const guildId = params.guildId;
+      const userId = querystring.parse(body).userId; // optional if you want extra validation
+      if (userId !== MY_USER_ID) { 
+        res.writeHead(403, { "Content-Type": "text/plain" });
+        res.end("❌ Only the owner can update settings");
+        return;
+      }
       if (!guildId) { res.writeHead(400); res.end("Guild ID missing"); return; }
       serverSettingsModule.setSettings(guildId, { botPrefix: params.botPrefix, statusMessage: params.statusMessage });
       res.writeHead(200, { "Content-Type": "text/plain" });
@@ -121,7 +119,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- Serve static files fallback ---
+  // --- Serve static fallback ---
   const filePath = path.join(__dirname, "public", req.url === "/" ? "index.html" : req.url);
   const ext = path.extname(filePath).toLowerCase();
   const types = { ".html":"text/html",".js":"application/javascript",".css":"text/css",".json":"application/json" };
@@ -129,3 +127,4 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => console.log(`🌐 Server running at http://localhost:${PORT}`));
+
