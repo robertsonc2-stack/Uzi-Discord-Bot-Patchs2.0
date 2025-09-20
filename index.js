@@ -1,7 +1,7 @@
 // index.js
 require("dotenv").config();
-const { Client, GatewayIntentBits } = require("discord.js");
-const serverModule = require("./server.js"); // server.js exports addLog and commands
+const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
+const serverModule = require("./server.js"); // server.js exports addLog, commands, botSettings
 
 // --- Create bot client ---
 const client = new Client({
@@ -12,36 +12,53 @@ const client = new Client({
   ],
 });
 
-// --- Dynamic log function using authorizedUserId from server.js ---
+// --- Dynamic log function ---
 async function logEvent(message) {
   const time = new Date().toLocaleTimeString();
   const logMsg = `[${time}] ${message}`;
   console.log(logMsg);
 
   try {
-    if (client.isReady() && serverModule.authorizedUserId) {
-      const user = await client.users.fetch(serverModule.authorizedUserId);
+    const userId = serverModule.authorizedUserId;
+    if (client.isReady() && userId) {
+      const user = await client.users.fetch(userId);
       if (user) user.send(`📩 ${logMsg}`).catch(() => {});
     }
   } catch (err) {
     console.error("Failed to send log DM:", err);
   }
 
-  // Also push to dashboard
+  // Push to dashboard
   if (serverModule.addLog) serverModule.addLog(logMsg);
-
   return logMsg;
 }
 
+// --- Update bot activity ---
+function updateBotStatus() {
+  if (client.isReady() && serverModule.botSettings?.statusMessage) {
+    try {
+      client.user.setActivity(serverModule.botSettings.statusMessage, {
+        type: ActivityType.Watching,
+      });
+      logEvent(`Bot status updated to: ${serverModule.botSettings.statusMessage}`);
+    } catch (err) {
+      console.error("Failed to set activity:", err);
+    }
+  }
+}
+
 // --- Bot ready event ---
-client.once("ready", async () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-  await logEvent(`Bot logged in as ${client.user.tag}`);
+client.once("ready", () => {
+  logEvent(`Bot logged in as ${client.user.tag}`);
+  updateBotStatus();
+
+  // Check for status changes every 15 seconds
+  setInterval(updateBotStatus, 15000);
 });
 
 // --- Commands ---
 const PREFIX = "!";
-const commands = serverModule.commands; // commands imported from server.js
+const commands = serverModule.commands;
 
 // --- Message listener ---
 client.on("messageCreate", async (message) => {
@@ -54,7 +71,6 @@ client.on("messageCreate", async (message) => {
   if (!command) return;
 
   try {
-    // Example commands implementation
     if (commandName === "ping") await message.reply("🏓 Pong!");
     if (commandName === "status")
       await message.reply(
