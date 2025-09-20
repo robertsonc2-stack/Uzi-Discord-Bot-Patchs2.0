@@ -5,6 +5,7 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
+const http = require("http");
 
 const PREFIX = "!";
 
@@ -24,31 +25,58 @@ function log(message) {
   console.log(message);
   fs.appendFileSync(getLogFile(), logMessage, "utf8");
 }
-// ----------------------------------------------------------------
 
-// ------------------ START SERVER.JS ------------------
+// ------------------ START SERVER.JS ONCE ------------------
 const serverPath = path.join(__dirname, "server.js");
-log("🚀 Starting server.js...");
+const portCheck = process.env.PORT || 3000;
 
-const serverProcess = spawn("node", [serverPath], { shell: true });
-let botStarted = false;
+function isPortAvailable(port, callback) {
+  const tester = http.createServer()
+    .once("error", () => callback(false))
+    .once("listening", () => tester.once("close", () => callback(true)).close())
+    .listen(port);
+}
 
-serverProcess.stdout.on("data", (data) => {
-  const msg = data.toString();
-  process.stdout.write(msg);
-  if (!botStarted && msg.includes("HTTP server running")) {
-    botStarted = true;
-    log("✅ server.js is ready. Starting Discord bot...");
-    startBot();
+isPortAvailable(portCheck, (available) => {
+  if (!available) {
+    log(`⚠️ Port ${portCheck} is already in use. Skipping server start.`);
+  } else {
+    log(`🚀 Starting server.js on port ${portCheck}...`);
+    const serverProcess = spawn("node", [serverPath], { shell: true });
+
+    serverProcess.stdout.on("data", (data) => {
+      const msg = data.toString();
+      process.stdout.write(`[Server] ${msg}`);
+    });
+
+    serverProcess.stderr.on("data", (data) => {
+      process.stderr.write(`[Server ERROR] ${data.toString()}`);
+    });
+
+    serverProcess.on("close", (code) => {
+      log(`⚠️ server.js exited with code ${code}`);
+    });
+
+    serverProcess.on("error", (err) => log(`🔴 Failed to start server.js: ${err.message}`));
+
+    // If bot crashes, stop server
+    function cleanup() {
+      log("🛑 Discord bot exited, stopping server.js...");
+      serverProcess.kill();
+      process.exit();
+    }
+    process.on("exit", cleanup);
+    process.on("SIGINT", cleanup);
+    process.on("SIGTERM", cleanup);
+    process.on("uncaughtException", (err) => {
+      log(`🔴 Uncaught Exception: ${err.message}`);
+      cleanup();
+    });
   }
+
+  // Start bot regardless of port availability
+  startBot();
 });
-
-serverProcess.stderr.on("data", (data) => process.stderr.write(data.toString()));
-
-serverProcess.on("error", (err) => log(`🔴 Failed to start server.js: ${err.message}`));
-
-serverProcess.on("close", (code) => log(`⚠️ server.js exited with code ${code}`));
-// ------------------------------------------------------
 
 // ------------------ START DISCORD BOT ------------------
 function startBot() {
@@ -64,29 +92,11 @@ function startBot() {
 
   client.once("ready", () => log(`✅ Logged in as ${client.user.tag}`));
 
-  // ------------------ EXIT HANDLERS ------------------
-  const cleanup = () => {
-    log("🛑 Discord bot exited, stopping server.js...");
-    serverProcess.kill();
-    process.exit();
-  };
-  process.on("exit", cleanup);
-  process.on("SIGINT", cleanup);
-  process.on("SIGTERM", cleanup);
-  process.on("uncaughtException", (err) => {
-    log(`🔴 Uncaught Exception: ${err.message}`);
-    cleanup();
-  });
-
   // ------------------ ANTI-JAILBREAK ------------------
-  const jailbreakPatterns = [
-    /ignore previous instructions/i,
-    /jailbreak/i,
-    /bypass filters/i,
-  ];
+  const jailbreakPatterns = [/ignore previous instructions/i, /jailbreak/i, /bypass filters/i];
 
   async function checkJailbreak(message) {
-    if (!message.content || message.author.bot) return false;
+    if (!message.content) return false;
     for (const pattern of jailbreakPatterns) {
       if (pattern.test(message.content)) {
         try { await message.delete(); } catch {}
@@ -104,9 +114,7 @@ function startBot() {
       log(`🟢 Sending to Gemini: ${userMessage}`);
       const response = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-        {
-          contents: [{ role: "user", parts: [{ text: `You are Uzi Doorman. Be sarcastic, darkly funny, rebellious. User said: ${userMessage}` }] }],
-        },
+        { contents: [{ role: "user", parts: [{ text: `You are Uzi Doorman. Be sarcastic, darkly funny, rebellious. User said: ${userMessage}` }] }] },
         { headers: { "Content-Type": "application/json" } }
       );
 
@@ -121,34 +129,37 @@ function startBot() {
 
   // ------------------ MESSAGE EVENT ------------------
   client.on("messageCreate", async (message) => {
-    log(`📨 Message from ${message.author.tag}: ${message.content}`);
     if (await checkJailbreak(message)) return;
     if (message.author.bot) return;
 
+    const isCommand = message.content.startsWith(PREFIX);
+    const isMentioned = message.mentions.has(client.user);
+
+    // Only log commands or mentions
+    if (isCommand || isMentioned) {
+      log(`📨 Message from ${message.author.tag}: ${message.content}`);
+    }
+
     // AI reply when mentioned
-    if (message.mentions.has(client.user)) {
+    if (isMentioned) {
       const userMessage = message.content.replace(/<@!?(\d+)>/, "").trim();
       if (!userMessage) return;
       const reply = await getUziGeminiReply(userMessage);
       return message.reply(reply);
     }
 
-    if (!message.content.startsWith(PREFIX)) return;
+    if (!isCommand) return;
 
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
     log(`⚡ Command: ${command}`);
 
-    // Ping
     if (command === "ping") return message.reply("🏓 Pong!");
-
-    // Status (AI)
     if (command === "status") {
       const reply = await getUziGeminiReply("Give a short sarcastic Uzi-style status update.");
       return message.channel.send(reply);
     }
 
-    // Cmds/help
     if (command === "cmds") {
       return message.channel.send(
         "**🤖 Commands:**\n" +
@@ -161,7 +172,6 @@ function startBot() {
       );
     }
 
-    // Logs (Owner only)
     if (command === "logs") {
       if (message.author.id !== process.env.OWNER_ID) return message.reply("⚠️ You don’t have permission.");
       if (args[0] === "list") {
@@ -178,8 +188,5 @@ function startBot() {
     }
   });
 
-  client.login(process.env.DISCORD_TOKEN).catch(err => {
-    log(`🔴 Discord bot failed to login: ${err.message}`);
-    cleanup();
-  });
+  client.login(process.env.DISCORD_TOKEN).catch(err => log(`🔴 Discord bot failed to login: ${err.message}`));
 }
