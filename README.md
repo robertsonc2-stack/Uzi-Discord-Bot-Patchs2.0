@@ -8,7 +8,7 @@ A Discord bot featuring a character from Murder Drones Called Uzi Doorman for ro
 
 - **Slash Commands**: Modern Discord interactions with !commands
 - **Roleplay Character**: Uzi Doorman with unique personalities
-- **Web Dashboard**: Simple web interface to view bot status (HAS NOT TESTED YET)
+- **Web Dashboard**: Simple web interface to view bot status (DOES NOT WORK)
 - **Multiple Response Types**: Each character has unique response pools
 - **Easy Setup**: Simple configuration with environment variables
 
@@ -38,7 +38,7 @@ Edit `.env` file:
 DISCORD_TOKEN=your_actual_bot_token_here
 CLIENT_ID=your_actual_client_id_here
 Not Needed Only For bots That Needs This
-OPENAI_API_KEY=
+OPENAI_API_KEY=YOUR_OPENAI_API_KEY
 ```
 
 ### 4. Get Your Discord Bot Token
@@ -58,19 +58,11 @@ https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scop
 
 ### 6. Run the Bot
 
-#### Option A: Run both bot and web server
+#### Option A: Run bot
 ```bash
 node index.js
 ```
 
-#### Option B: Run only the Discord bot might be useless
-```bash
-npm run bot
-```
-
-#### Option C: Run in development mode (both services) might be useless
-```bash
-npm run dev
 ```
 
 ## Available Commands
