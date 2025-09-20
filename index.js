@@ -1,19 +1,23 @@
 // index.js
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
-const http = require("http");
+const serverSettings = require("./serverSettings");
+const net = require("net");
 
-// --- Attempt to start server.js only if port is free ---
+// --- Discord Owner ID (your user) ---
+const OWNER_ID = "YOUR_USER_ID_HERE"; // ← change this to your Discord ID
+
+// --- Check if server is already running before starting ---
 const PORT = 3000;
-
 function startServer() {
-  const serverModule = require("./server.js");
-  console.log("🌐 Server.js loaded (server running or already active).");
-  return serverModule;
+  try {
+    require("./server.js"); // will only start server once
+    console.log("🌐 Server.js loaded (server running or already active).");
+  } catch (err) {
+    console.error("❌ Failed to load server.js:", err);
+  }
 }
 
-// Simple port check
-const net = require("net");
 const tester = net.createServer()
   .once("error", (err) => {
     if (err.code === "EADDRINUSE") {
@@ -30,23 +34,6 @@ const tester = net.createServer()
   })
   .listen(PORT);
 
-// --- Local log function ---
-function logEvent(message) {
-  const time = new Date().toLocaleTimeString();
-  const logMsg = `[${time}] ${message}`;
-  console.log(logMsg);
-
-  // Push to dashboard if addLog exists
-  try {
-    const serverModule = require("./server.js");
-    if (serverModule.addLog) serverModule.addLog(logMsg);
-  } catch (err) {
-    // ignore if server.js not ready yet
-  }
-
-  return logMsg;
-}
-
 // --- Create bot client ---
 const client = new Client({
   intents: [
@@ -56,10 +43,54 @@ const client = new Client({
   ],
 });
 
+// --- Log function sending DMs to you ---
+async function logEvent(message) {
+  const time = new Date().toLocaleTimeString();
+  const logMsg = `[${time}] ${message}`;
+  console.log(logMsg);
+
+  try {
+    if (client.isReady()) {
+      const owner = await client.users.fetch(OWNER_ID);
+      if (owner) owner.send(`📩 ${logMsg}`).catch(() => {});
+    }
+  } catch (err) {
+    console.error("Failed to send log DM:", err);
+  }
+
+  return logMsg;
+}
+
 // --- Bot ready event ---
-client.once("ready", () => {
+client.once("ready", async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-  logEvent(`Bot logged in as ${client.user.tag}`);
+  await logEvent(`Bot logged in as ${client.user.tag}`);
+
+  // Set initial status
+  const settings = serverSettings.getSettings("global");
+  if (settings.statusMessage) {
+    try {
+      client.user.setActivity(settings.statusMessage, { type: 3 });
+    } catch (err) {
+      console.error("Failed to set bot activity:", err);
+    }
+  }
+
+  // Optional: dynamic status updates
+  setInterval(() => {
+    const newSettings = serverSettings.getSettings("global");
+    if (
+      newSettings.statusMessage &&
+      client.user.presence.activities[0]?.name !== newSettings.statusMessage
+    ) {
+      try {
+        client.user.setActivity(newSettings.statusMessage, { type: 3 });
+        logEvent(`Bot status updated to: ${newSettings.statusMessage}`);
+      } catch (err) {
+        console.error("Failed to update bot activity:", err);
+      }
+    }
+  }, 5000);
 });
 
 // --- Commands ---
@@ -89,7 +120,7 @@ const commands = {
   logs: {
     description: "View logs (DM only)",
     run: (msg) => {
-      msg.author.send("📂 Logs are available in the dashboard at /dashboard");
+      msg.author.send("📂 Logs are available in your DMs automatically.");
     },
   },
   dashboard: {
@@ -100,7 +131,7 @@ const commands = {
 };
 
 // --- Message listener ---
-client.on("messageCreate", (message) => {
+client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith(PREFIX)) return;
 
@@ -110,8 +141,8 @@ client.on("messageCreate", (message) => {
   if (!command) return;
 
   try {
-    command.run(message, args);
-    logEvent(
+    await command.run(message, args);
+    await logEvent(
       `Command used: !${commandName} by ${message.author.tag} in #${message.channel.name}`
     );
   } catch (err) {
