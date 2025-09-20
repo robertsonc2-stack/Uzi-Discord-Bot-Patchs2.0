@@ -1,6 +1,6 @@
 # Uzi-Discord-Bot
 
-WARNING THIS README FILE IS NOT UP TO DATE DO NOT USE THIS BOT
+WARNING THIS README FILE IS NOT UP TO DATE DO NOT USE THSI BOT OR THE BOT YOU MAKE
 
 A Discord bot featuring a character from Murder Drones Called Uzi Doorman for roleplay interactions.
 
@@ -37,6 +37,8 @@ Edit `.env` file:
 ```
 DISCORD_TOKEN=your_actual_bot_token_here
 CLIENT_ID=your_actual_client_id_here
+Not Needed Only For bots That Needs This
+OPENAI_API_KEY=
 ```
 
 ### 4. Get Your Discord Bot Token
