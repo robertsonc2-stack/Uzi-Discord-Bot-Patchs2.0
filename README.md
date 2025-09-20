@@ -22,7 +22,7 @@
 **Uzi Doorman**: A worker drone with a mysterious past, often questioning her existence and showing determination. The bot's responses reflect Uzi's unique personality and humor.
 
 ## Build Instructions
-To build your Discord bot, follow these steps:
+To build my Discord bot, follow these steps:
 
 1. **Install dependencies**
    ```bash
