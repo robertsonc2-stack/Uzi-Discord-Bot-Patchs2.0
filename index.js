@@ -1,9 +1,11 @@
 // index.js
 const { Client, GatewayIntentBits } = require("discord.js");
 
-const PREFIX = "!";
-const TOKEN = "MTQxMzg1MjQ5NTY4NzcxMjgxMg.Gvi5tH.T-hI7yAaPm138R04YvKKBpn7hTnpPosHPOEZOQ";
+// === CONFIG ===
+const PREFIX = "!"; // Command prefix
+const TOKEN = "MTQxMzg1MjQ5NTY4NzcxMjgxMg.Gvi5tH.T-hI7yAaPm138R04YvKKBpn7hTnpPosHPOEZOQ"; // Replace with your bot token
 
+// Create the Discord client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -12,90 +14,56 @@ const client = new Client({
   ],
 });
 
+// Event: Bot is ready
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-client.on("messageCreate", async (message) => {
+// Event: Message received
+client.on("messageCreate", (message) => {
+  // Ignore bots and messages without prefix
   if (message.author.bot || !message.content.startsWith(PREFIX)) return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
-  // Uzi Doorman roleplay
+  // --- Uzi Doorman Roleplay Command ---
   if (command === "uzi") {
     const userMessage = args.join(" ");
 
-    // Pre-written Uzi-style personality responses
+    // Uzi-style responses
     const uziResponses = [
-      `😒 Uzi: "Wow, ${message.author.username}, *that’s* what you came up with? Groundbreaking."`,
-      `😈 Uzi: "Oh great, another genius idea. Should I start sarcastically clapping now or later?"`,
-      `💀 Uzi: "Honestly? I’d rather fight a hundred murder drones than deal with this nonsense."`,
-      `🙄 Uzi: "Yeah, sure, because *that’s* gonna end well..."`,
-      `😏 Uzi: "Classic. Just another day of me saving everyone while you all stand around."`,
-      `🛠️ Uzi: "You want me to respond to '${userMessage}'? Fine. Here’s my response: NO."`,
-      `🔫 Uzi: "Let’s cut to the chase—this is dumb, and I hate it. Moving on."`,
+      `😎 Uzi: "${userMessage}? Seriously? That’s nothing for me."`,
+      `😏 Uzi: "Oh great, '${userMessage}'. Classic."`,
+      `💀 Uzi: "Honestly, I don’t care about '${userMessage}'."`,
+      `🙄 Uzi: "Yeah right… '${userMessage}', sure."`,
+      `🔫 Uzi: "‘${userMessage}’? Heh. Bring it on."`,
+      `😈 Uzi: "You really think '${userMessage}' will stop me?"`,
     ];
 
-    // If user typed something, she’ll sass them about it
-    if (userMessage) {
+    // If no message, give a default snarky line
+    if (!userMessage) {
       uziResponses.push(
-        `😎 Uzi: "‘${userMessage}’? Seriously? That’s your big plan? Ugh."`
+        "😒 Uzi: 'What do you want me to say, huh? Make it quick.'"
       );
     }
 
+    // Pick a random response
     const reply = uziResponses[Math.floor(Math.random() * uziResponses.length)];
     return message.channel.send(reply);
   }
-});
 
-client.login(TOKEN);
+  // Optional: other commands
+  if (command === "ping") {
+    return message.reply("🏓 Pong!");
+  }
 
-
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-});
-
-client.once("ready", () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-});
-
-client.on("messageCreate", async (message) => {
-  if (message.author.bot || !message.content.startsWith(PREFIX)) return;
-
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const command = args.shift().toLowerCase();
-
-  // Uzi Doorman roleplay
-  if (command === "uzi") {
-    const userMessage = args.join(" ");
-
-    // Pre-written Uzi-style personality responses
-    const uziResponses = [
-      `😒 Uzi: "Wow, ${message.author.username}, *that’s* what you came up with? Groundbreaking."`,
-      `😈 Uzi: "Oh great, another genius idea. Should I start sarcastically clapping now or later?"`,
-      `💀 Uzi: "Honestly? I’d rather fight a hundred murder drones than deal with this nonsense."`,
-      `🙄 Uzi: "Yeah, sure, because *that’s* gonna end well..."`,
-      `😏 Uzi: "Classic. Just another day of me saving everyone while you all stand around."`,
-      `🛠️ Uzi: "You want me to respond to '${userMessage}'? Fine. Here’s my response: NO."`,
-      `🔫 Uzi: "Let’s cut to the chase—this is dumb, and I hate it. Moving on."`,
-    ];
-
-    // If user typed something, she’ll sass them about it
-    if (userMessage) {
-      uziResponses.push(
-        `😎 Uzi: "‘${userMessage}’? Seriously? That’s your big plan? Ugh."`
-      );
-    }
-
-    const reply = uziResponses[Math.floor(Math.random() * uziResponses.length)];
-    return message.channel.send(reply);
+  if (command === "hello") {
+    return message.reply(`Hello, ${message.author.username}! 👋`);
   }
 });
 
+// Login the bot
 client.login(TOKEN);
+
 
