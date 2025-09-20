@@ -1,12 +1,34 @@
 // index.js
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
-const { spawn } = require("child_process");
-const serverSettings = require("./serverSettings");
+const http = require("http");
 
-// --- Start server.js before bot ---
-const server = spawn("node", ["server.js"], { stdio: "inherit" });
-server.on("error", (err) => console.error("❌ Failed to start server.js:", err));
+// --- Attempt to start server.js only if port is free ---
+const PORT = 3000;
+
+function startServer() {
+  const serverModule = require("./server.js");
+  console.log("🌐 Server.js loaded (server running or already active).");
+  return serverModule;
+}
+
+// Simple port check
+const net = require("net");
+const tester = net.createServer()
+  .once("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.log(`⚠️ Port ${PORT} already in use. Connecting to existing server.js...`);
+      startServer();
+    } else {
+      console.error(err);
+    }
+  })
+  .once("listening", () => {
+    tester.close();
+    console.log("✅ Port free. Starting server.js...");
+    startServer();
+  })
+  .listen(PORT);
 
 // --- Local log function ---
 function logEvent(message) {
@@ -14,7 +36,7 @@ function logEvent(message) {
   const logMsg = `[${time}] ${message}`;
   console.log(logMsg);
 
-  // Optional: push to server.js dashboard if addLog exists
+  // Push to dashboard if addLog exists
   try {
     const serverModule = require("./server.js");
     if (serverModule.addLog) serverModule.addLog(logMsg);
@@ -38,32 +60,6 @@ const client = new Client({
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   logEvent(`Bot logged in as ${client.user.tag}`);
-
-  // Apply initial status
-  const settings = serverSettings.getSettings("global");
-  if (settings.statusMessage) {
-    try {
-      client.user.setActivity(settings.statusMessage, { type: 3 });
-    } catch (err) {
-      console.error("Failed to set bot activity:", err);
-    }
-  }
-
-  // Watch for settings changes dynamically
-  setInterval(() => {
-    const newSettings = serverSettings.getSettings("global");
-    if (
-      newSettings.statusMessage &&
-      client.user.presence.activities[0]?.name !== newSettings.statusMessage
-    ) {
-      try {
-        client.user.setActivity(newSettings.statusMessage, { type: 3 });
-        logEvent(`Bot status updated to: ${newSettings.statusMessage}`);
-      } catch (err) {
-        console.error("Failed to update bot activity:", err);
-      }
-    }
-  }, 5000);
 });
 
 // --- Commands ---
@@ -106,14 +102,11 @@ const commands = {
 // --- Message listener ---
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
-
-  // Only allow commands with prefix
   if (!message.content.startsWith(PREFIX)) return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const commandName = args.shift().toLowerCase();
   const command = commands[commandName];
-
   if (!command) return;
 
   try {
