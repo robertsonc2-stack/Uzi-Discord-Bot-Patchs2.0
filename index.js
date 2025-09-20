@@ -4,7 +4,6 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
 
 const PREFIX = "!";
 
@@ -41,29 +40,6 @@ const client = new Client({
 
 client.once("ready", () => {
   log(`✅ Logged in as ${client.user.tag}`);
-
-  // ------------------ AUTO START + RESTART SERVER.JS ------------------
-  function startServer() {
-    const serverProcess = spawn("node", ["server.js"], {
-      cwd: __dirname,
-      stdio: "inherit",
-      shell: true,
-    });
-
-    log("🚀 server.js started");
-
-    serverProcess.on("close", (code) => {
-      log(`⚠️ server.js exited with code ${code}. Restarting in 5s...`);
-      setTimeout(startServer, 5000);
-    });
-
-    serverProcess.on("error", (err) => {
-      log(`🔴 Error running server.js: ${err.message}`);
-    });
-  }
-
-  startServer();
-  // -------------------------------------------------------------------
 });
 
 // ------------------ SAFE ANTI-JAILBREAK ------------------
@@ -249,4 +225,3 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
