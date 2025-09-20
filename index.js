@@ -8,7 +8,7 @@ const { spawn } = require("child_process");
 
 const PREFIX = "!";
 
-// ------------------ LOGGER WITH DAILY ROTATION ------------------
+// ------------------ LOGGER ------------------
 function getLogFile(date = null) {
   const targetDate = date || new Date().toISOString().split("T")[0];
   return path.join(__dirname, "logs", `${targetDate}.log`);
@@ -29,19 +29,25 @@ function log(message) {
 // ------------------ START SERVER.JS ------------------
 const serverPath = path.join(__dirname, "server.js");
 log("🚀 Starting server.js...");
-const serverProcess = spawn("node", [serverPath], { stdio: "inherit", shell: true });
 
-serverProcess.on("error", (err) => {
-  log(`🔴 Failed to start server.js: ${err.message}`);
+const serverProcess = spawn("node", [serverPath], { shell: true });
+let botStarted = false;
+
+serverProcess.stdout.on("data", (data) => {
+  const msg = data.toString();
+  process.stdout.write(msg);
+  if (!botStarted && msg.includes("HTTP server running")) {
+    botStarted = true;
+    log("✅ server.js is ready. Starting Discord bot...");
+    startBot();
+  }
 });
 
-serverProcess.on("close", (code) => {
-  log(`⚠️ server.js exited with code ${code}`);
-});
+serverProcess.stderr.on("data", (data) => process.stderr.write(data.toString()));
 
-// Delay bot startup to allow server.js to initialize
-const BOT_START_DELAY = 2000; // 2 seconds
-setTimeout(() => startBot(), BOT_START_DELAY);
+serverProcess.on("error", (err) => log(`🔴 Failed to start server.js: ${err.message}`));
+
+serverProcess.on("close", (code) => log(`⚠️ server.js exited with code ${code}`));
 // ------------------------------------------------------
 
 // ------------------ START DISCORD BOT ------------------
@@ -56,8 +62,20 @@ function startBot() {
     partials: ["CHANNEL"],
   });
 
-  client.once("ready", () => {
-    log(`✅ Logged in as ${client.user.tag}`);
+  client.once("ready", () => log(`✅ Logged in as ${client.user.tag}`));
+
+  // ------------------ EXIT HANDLERS ------------------
+  const cleanup = () => {
+    log("🛑 Discord bot exited, stopping server.js...");
+    serverProcess.kill();
+    process.exit();
+  };
+  process.on("exit", cleanup);
+  process.on("SIGINT", cleanup);
+  process.on("SIGTERM", cleanup);
+  process.on("uncaughtException", (err) => {
+    log(`🔴 Uncaught Exception: ${err.message}`);
+    cleanup();
   });
 
   // ------------------ ANTI-JAILBREAK ------------------
@@ -80,7 +98,7 @@ function startBot() {
     return false;
   }
 
-  // ------------------ AI REPLY FUNCTION ------------------
+  // ------------------ AI REPLY ------------------
   async function getUziGeminiReply(userMessage) {
     try {
       log(`🟢 Sending to Gemini: ${userMessage}`);
@@ -160,5 +178,8 @@ function startBot() {
     }
   });
 
-  client.login(process.env.DISCORD_TOKEN);
+  client.login(process.env.DISCORD_TOKEN).catch(err => {
+    log(`🔴 Discord bot failed to login: ${err.message}`);
+    cleanup();
+  });
 }
