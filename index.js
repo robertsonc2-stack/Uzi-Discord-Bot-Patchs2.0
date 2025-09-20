@@ -57,7 +57,11 @@ async function getUziGeminiReply(userMessage) {
         contents: [
           {
             role: "user",
-            parts: [{ text: `You are Uzi Doorman from Murder Drones. Respond sarcastically, darkly funny, rebellious, and a bit rude. User said: ${userMessage}` }],
+            parts: [
+              {
+                text: `You are Uzi Doorman from Murder Drones. Respond sarcastically, darkly funny, rebellious, and a bit rude. User said: ${userMessage}`,
+              },
+            ],
           },
         ],
       },
@@ -107,20 +111,12 @@ client.on("messageCreate", async (message) => {
     return message.reply("🏓 Pong!");
   }
 
-  // Status command
+  // Status command (AI-powered now!)
   if (command === "status") {
-    const statusMessages = [
-      "😎 Uzi is chilling… probably plotting something.",
-      "💀 Uzi is online and sarcastically judging you.",
-      "🔥 Uzi is ready to cause chaos!",
-      "🤖 Uzi is active. Approach with caution.",
-      "⚡ Uzi is thinking dark thoughts…",
-    ];
-
-    const messageToSend =
-      statusMessages[Math.floor(Math.random() * statusMessages.length)];
-
-    return message.channel.send(messageToSend);
+    const reply = await getUziGeminiReply(
+      "Give a short sarcastic, Uzi-style status update about how you feel right now."
+    );
+    return message.channel.send(reply);
   }
 
   // Help command (!cmds)
@@ -128,7 +124,7 @@ client.on("messageCreate", async (message) => {
     return message.channel.send(
       "**🤖 Available Commands:**\n" +
         "`!ping` → Test if the bot is alive\n" +
-        "`!status` → Get a random Uzi-style status message\n" +
+        "`!status` → Get a sarcastic AI-powered Uzi status\n" +
         "`!cmds` → Show this help message"
     );
   }
