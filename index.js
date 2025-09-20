@@ -7,7 +7,11 @@ const path = require("path");
 const { spawn } = require("child_process");
 const http = require("http");
 
-const PREFIX = "!";
+// Import server settings module
+const serverSettingsModule = require('./server.js');
+
+const PREFIX_DEFAULT = "!";
+const OWNER_ID = process.env.OWNER_ID;
 
 // ------------------ LOGGER ------------------
 function getLogFile(date = null) {
@@ -45,10 +49,10 @@ function cleanupOldLogs(days = 7) {
   });
 }
 
-// Run cleanup on bot start
+// Run cleanup on start
 cleanupOldLogs(7);
 
-// ------------------ START SERVER.JS ONCE (WITH LOGGING) ------------------
+// ------------------ START SERVER.JS ------------------
 const serverPath = path.join(__dirname, "server.js");
 const portCheck = process.env.PORT || 3000;
 
@@ -93,7 +97,6 @@ isPortAvailable(portCheck, (available) => {
     });
   }
 
-  // Start bot with limited restarts
   startBotWithLimitedRestarts();
 });
 
@@ -148,16 +151,20 @@ function startBot() {
 
   // ------------------ MESSAGE EVENT ------------------
   client.on("messageCreate", async (message) => {
-    if (await checkJailbreak(message)) return;
     if (message.author.bot) return;
+    if (await checkJailbreak(message)) return;
 
-    const isCommand = message.content.startsWith(PREFIX);
+    const guildId = message.guild?.id;
+    const guildSettings = serverSettingsModule.getSettings(guildId) || {};
+    const botPrefix = guildSettings.botPrefix || PREFIX_DEFAULT;
+    const statusMessage = guildSettings.statusMessage || "Uzi is online";
+
+    const isCommand = message.content.startsWith(botPrefix);
     const isMentioned = message.mentions.has(client.user);
 
-    if (isCommand || isMentioned) {
-      log(`📨 Message from ${message.author.tag}: ${message.content}`);
-    }
+    if (isCommand || isMentioned) log(`📨 Message from ${message.author.tag}: ${message.content}`);
 
+    // Mention -> AI reply
     if (isMentioned) {
       const userMessage = message.content.replace(/<@!?(\d+)>/, "").trim();
       if (!userMessage) return;
@@ -167,68 +174,85 @@ function startBot() {
 
     if (!isCommand) return;
 
-    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+    const args = message.content.slice(botPrefix.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
-    log(`⚡ Command: ${command}`);
 
     if (command === "ping") return message.reply("🏓 Pong!");
-    if (command === "status") {
-      const reply = await getUziGeminiReply("Give a short sarcastic Uzi-style status update.");
-      return message.channel.send(reply);
-    }
+    if (command === "status") return message.channel.send(statusMessage);
 
     if (command === "cmds") {
       return message.channel.send(
-        "**🤖 Commands:**\n" +
-          "`!ping` → Test bot\n" +
-          "`!status` → Get Uzi AI status\n" +
-          "`!cmds` → Show this help\n" +
-          "`!logs` → (Owner only) Get logs\n" +
-          "`!logs YYYY-MM-DD` → (Owner only) Specific date\n" +
-          "`!logs list` → (Owner only) List log files"
+        `**🤖 Commands (Prefix: ${botPrefix}):**\n` +
+        "`!ping` → Test bot\n" +
+        "`!status` → Get Uzi AI status\n" +
+        "`!cmds` → Show this help\n" +
+        "`!logs` → (Owner only) Get logs\n" +
+        "`!Dashboard` → (Owner only) Open server dashboard"
       );
     }
 
+    // ------------------ DASHBOARD COMMAND ------------------
+    if (command === "dashboard") {
+      if (message.author.id !== OWNER_ID) {
+        return message.reply("⚠️ You don’t have permission to view the dashboard.");
+      }
+
+      if (!guildId) return message.reply("⚠️ Cannot determine server ID.");
+
+      const dashboardURL = `http://localhost:${process.env.PORT || 3000}/?guildId=${guildId}`;
+
+      try {
+        await message.author.send(`🔧 Server Dashboard for **${message.guild.name}**:\n${dashboardURL}`);
+        return message.reply("✅ Dashboard link sent to your DMs!");
+      } catch (err) {
+        log(`🔴 Failed to send dashboard DM: ${err.message}`);
+        return message.reply("⚠️ Failed to send you the dashboard link. Do you have DMs disabled?");
+      }
+    }
+
+    // ------------------ OWNER LOGS COMMAND ------------------
     if (command === "logs") {
-      if (message.author.id !== process.env.OWNER_ID) return message.reply("⚠️ You don’t have permission.");
-      if (args[0] === "list") {
-        const logDir = path.join(__dirname, "logs");
-        if (!fs.existsSync(logDir)) return message.reply("⚠️ No logs folder.");
+      if (message.author.id !== OWNER_ID) return message.reply("⚠️ You don’t have permission.");
+      const arg = args[0];
+      const logDir = path.join(__dirname, "logs");
+
+      if (arg === "list") {
+        if (!fs.existsSync(logDir)) return message.author.send("⚠️ No logs folder.");
         const files = fs.readdirSync(logDir).filter(f => f.endsWith(".log"));
         return message.author.send("📂 Logs:\n" + files.join("\n"));
       }
-      const targetDate = args[0] || null;
-      const logFile = getLogFile(targetDate);
+
+      const logFile = getLogFile(arg);
       if (fs.existsSync(logFile)) {
-        return message.author.send({ content: `📑 Logs for ${targetDate || "today"}`, files: [logFile] });
-      } else return message.reply(`⚠️ No log file for ${targetDate || "today"}`);
+        return message.author.send({ content: `📑 Logs for ${arg || "today"}`, files: [logFile] });
+      } else return message.reply(`⚠️ No log file for ${arg || "today"}`);
     }
   });
 
   client.login(process.env.DISCORD_TOKEN).catch(err => { throw err; });
 }
 
-// ------------------ AUTO-RESTART BOT (MAX 2 TIMES) ------------------
+// ------------------ AUTO-RESTART BOT ------------------
 function startBotWithLimitedRestarts() {
   let restartCount = 0;
-  const maxRestarts = 2;
 
   async function launchBot() {
-    try {
-      await startBot();
-    } catch (err) {
-      log(`🔴 Bot crashed: ${err.message}`);
-    }
+    const mainGuildSettings = serverSettingsModule.getSettings(/* choose main guild */) || {};
+    const maxRestarts = mainGuildSettings.maxRestarts || 2;
+
+    try { await startBot(); } catch (err) { log(`🔴 Bot crashed: ${err.message}`); }
 
     restartCount++;
     if (restartCount <= maxRestarts) {
       log(`♻️ Restarting Discord bot (${restartCount}/${maxRestarts}) in 5 seconds...`);
       setTimeout(launchBot, 5000);
     } else {
-      log("❌ Bot has exceeded maximum restarts. Shutting down index.js and server.js...");
+      log("❌ Bot exceeded max restarts. Shutting down index.js and server.js...");
       process.exit(1);
     }
   }
 
   launchBot();
+}
+
 }
