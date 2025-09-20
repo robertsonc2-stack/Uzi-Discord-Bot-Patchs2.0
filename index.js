@@ -68,6 +68,9 @@ client.on("messageCreate", async (message) => {
   }
 });
 
+// --- Export Commands for server.js ---
+module.exports = { commands };
+
 // --- Update bot presence from dashboard ---
 setInterval(() => {
   client.guilds.cache.forEach(guild => {
