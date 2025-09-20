@@ -1,49 +1,131 @@
-// index.js
+// server.js
 require("dotenv").config();
-const { Client, GatewayIntentBits } = require("discord.js");
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+const querystring = require("querystring");
 const serverSettingsModule = require("./serverSettings.js");
-require("./server.js"); // start server automatically
 
-const client = new Client({
-  intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent]
-});
+const PORT = 3000;
+const MY_USER_ID = "YOUR_USER_ID_HERE"; // Replace with your Discord ID
 
-client.once("ready", ()=>console.log(`✅ Logged in as ${client.user.tag}`));
+// Serve static files
+function serveFile(res, filePath, contentType, code = 200) {
+  fs.readFile(filePath, (err, content) => {
+    if (err) {
+      res.writeHead(500);
+      res.end("Internal Server Error");
+      return;
+    }
+    res.writeHead(code, { "Content-Type": contentType });
+    res.end(content, "utf-8");
+  });
+}
 
-client.on("messageCreate", async message=>{
-  if(message.author.bot || !message.guild) return;
-  const guildId = message.guild.id;
-  const settings = serverSettingsModule.getSettings(guildId);
-  const prefix = settings.botPrefix || "!";
-
-  if(!message.content.startsWith(prefix)) return;
-
-  if(!serverSettingsModule.getAllowedUsers(guildId).includes(message.author.id)){
-    console.log(`⚠️ Unauthorized user ${message.author.tag} tried a command.`);
+const server = http.createServer((req, res) => {
+  // --- Serve main dashboard page ---
+  if (req.method === "GET" && req.url === "/") {
+    const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8"><title>Bot Dashboard</title></head>
+    <body>
+      <h1>Bot Dashboard</h1>
+      <form id="accessForm">
+        <label>Your User ID: <input id="userId" placeholder="Discord User ID"></label><br>
+        <label>Your Guild ID: <input id="guildId" placeholder="Discord Guild ID"></label><br>
+        <button type="button" onclick="goDashboard()">Go to Dashboard</button>
+      </form>
+      <script>
+        // Auto-fill your user ID
+        document.getElementById('userId').value = '${MY_USER_ID}';
+        function goDashboard() {
+          const guildId = document.getElementById('guildId').value;
+          const userId = document.getElementById('userId').value;
+          if(!guildId || !userId){alert('Fill both fields');return;}
+          window.location.href = '/dashboard?guildId='+guildId+'&userId='+userId;
+        }
+      </script>
+    </body>
+    </html>`;
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
     return;
   }
 
-  const args = message.content.slice(prefix.length).trim().split(/ +/);
-  const command = args.shift().toLowerCase();
-  console.log(`📥 Command from ${message.author.tag}: ${command}`);
+  // --- Dashboard page ---
+  if (req.method === "GET" && req.url.startsWith("/dashboard")) {
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const userId = parsedUrl.searchParams.get("userId");
+    const guildId = parsedUrl.searchParams.get("guildId");
 
-  if(command==="status"){
-    message.channel.send(`💬 Current status: ${settings.statusMessage}`);
+    if (!userId || !guildId) {
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Guild ID and User ID are required");
+      return;
+    }
+
+    // Access check
+    if (!serverSettingsModule.getAllowedUsers(guildId).includes(userId)) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("❌ You do not have permission");
+      return;
+    }
+
+    const settings = serverSettingsModule.getSettings(guildId);
+    const accessLink = userId === MY_USER_ID
+      ? `<p><a href="/access-control" style="color:#1DB954;">Manage Allowed Users</a></p>` : "";
+
+    const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8"><title>Dashboard</title></head>
+    <body>
+      <h1>Server Dashboard</h1>
+      <p>Guild ID: ${guildId}</p>
+      <p>User ID: ${userId}</p>
+      <p>Bot Prefix: <input id="botPrefix" value="${settings.botPrefix}" /></p>
+      <p>Status Message: <input id="statusMessage" value="${settings.statusMessage}" /></p>
+      <button onclick="updateSettings()">Save</button>
+      ${accessLink}
+      <script>
+        function updateSettings() {
+          const prefix = document.getElementById('botPrefix').value;
+          const status = document.getElementById('statusMessage').value;
+          fetch('/update-settings', {
+            method:'POST',
+            headers:{'Content-Type':'application/x-www-form-urlencoded'},
+            body:'guildId=${guildId}&botPrefix='+encodeURIComponent(prefix)+'&statusMessage='+encodeURIComponent(status)
+          }).then(res=>res.text()).then(alert).catch(alert);
+        }
+      </script>
+    </body>
+    </html>`;
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
   }
 
-  if(command==="cmds"){
-    message.channel.send(`**🤖 Commands:**\n\`${prefix}status\` → show status\n\`${prefix}cmds\` → list commands`);
+  // --- Update settings POST ---
+  if (req.method === "POST" && req.url === "/update-settings") {
+    let body = "";
+    req.on("data", chunk => body += chunk.toString());
+    req.on("end", () => {
+      const params = querystring.parse(body);
+      const guildId = params.guildId;
+      if (!guildId) { res.writeHead(400); res.end("Guild ID missing"); return; }
+      serverSettingsModule.setSettings(guildId, { botPrefix: params.botPrefix, statusMessage: params.statusMessage });
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("✅ Settings updated!");
+    });
+    return;
   }
+
+  // --- Serve static files fallback ---
+  const filePath = path.join(__dirname, "public", req.url === "/" ? "index.html" : req.url);
+  const ext = path.extname(filePath).toLowerCase();
+  const types = { ".html":"text/html",".js":"application/javascript",".css":"text/css",".json":"application/json" };
+  fs.exists(filePath, exists => exists ? serveFile(res, filePath, types[ext]||"text/plain") : serveFile(res, path.join(__dirname,"public","index.html"),"text/html"));
 });
 
-// Optional: update bot presence from status message
-setInterval(()=>{
-  client.guilds.cache.forEach(guild=>{
-    const settings = serverSettingsModule.getSettings(guild.id);
-    if(settings.statusMessage && client.user){
-      client.user.setActivity(settings.statusMessage,{type:"WATCHING"}).catch(()=>{});
-    }
-  });
-},10000);
-
-client.login(process.env.DISCORD_TOKEN);
+server.listen(PORT, () => console.log(`🌐 Server running at http://localhost:${PORT}`));
