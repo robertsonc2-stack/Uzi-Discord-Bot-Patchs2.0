@@ -1,26 +1,32 @@
+// server.js
 const http = require("http");
 const url = require("url");
 
 const PORT = 3000;
 
-// --- Commands ---
+// --- Commands list (same as index.js) ---
 const commands = {
-  "!help": "Show available commands",
-  "!cmds": "List all commands",
-  "!dashboard": "Open the bot dashboard",
-  "!logs": "Show logs inside dashboard",
+  ping: "Test if bot is alive",
+  status: "Show bot status",
+  cmds: "Show all commands",
+  logs: "View logs (DM only)",
+  dashboard: "Open the bot dashboard",
 };
 
-// --- Logs ---
+// --- Logs storage ---
 let logs = [];
 let logClients = [];
 
+// Function to add a log (called from index.js)
 function addLog(entry) {
   const time = new Date().toLocaleTimeString();
   const msg = `[${time}] ${entry}`;
   logs.push(msg);
   if (logs.length > 100) logs.shift();
+
+  // Push to all connected dashboard clients (SSE)
   logClients.forEach((res) => res.write(`data: ${JSON.stringify(msg)}\n\n`));
+
   console.log(msg);
 }
 
@@ -37,11 +43,11 @@ const tester = net.createServer()
   .once("listening", () => {
     tester.close();
 
-    // --- Create the HTTP server ---
+    // --- HTTP server ---
     const server = http.createServer((req, res) => {
       const parsedUrl = url.parse(req.url, true);
 
-      // SSE logs
+      // SSE logs streaming
       if (parsedUrl.pathname === "/logs/stream") {
         res.writeHead(200, {
           "Content-Type": "text/event-stream",
@@ -56,12 +62,12 @@ const tester = net.createServer()
         return;
       }
 
-      // Dashboard
+      // Dashboard page
       if (parsedUrl.pathname === "/dashboard") {
         const html = `
           <!DOCTYPE html>
           <html>
-          <head><meta charset="UTF-8"><title>Dashboard</title></head>
+          <head><meta charset="UTF-8"><title>Bot Dashboard</title></head>
           <body>
             <h1>Bot Dashboard</h1>
             <h2>Commands:</h2>
@@ -69,7 +75,7 @@ const tester = net.createServer()
               .map(([cmd, desc]) => `<li><b>${cmd}</b>: ${desc}</li>`)
               .join("")}</ul>
             <h2>Logs:</h2>
-            <div id="logBox" style="white-space:pre-wrap;"></div>
+            <div id="logBox" style="white-space:pre-wrap;height:300px;overflow:auto;border:1px solid #ccc;padding:5px;"></div>
             <script>
               const logBox = document.getElementById("logBox");
               const evt = new EventSource("/logs/stream");
@@ -103,9 +109,9 @@ const tester = net.createServer()
         return;
       }
 
-      // Default
+      // Default page
       res.writeHead(200, { "Content-Type": "text/plain" });
-      res.end("Bot Dashboard running at /dashboard");
+      res.end("Bot server running. Visit /dashboard for dashboard.");
     });
 
     server.listen(PORT, () => {
@@ -113,6 +119,7 @@ const tester = net.createServer()
       addLog(`Server started on port ${PORT}`);
     });
 
+    // Export functions for index.js to push logs
     module.exports = { addLog, commands };
   })
   .listen(PORT);
