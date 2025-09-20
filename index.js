@@ -1,4 +1,3 @@
-// index.js
 require("dotenv").config();
 const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
 const serverModule = require("./server.js"); 
@@ -67,20 +66,42 @@ client.on("messageCreate", async (message) => {
   if (!command) return;
 
   try {
-    if (commandName === "ping") await message.reply("🏓 Pong!");
-    if (commandName === "status")
-      await message.reply(`✅ Online as ${client.user.tag}\n🌍 Servers: ${client.guilds.cache.size}`);
-    if (commandName === "cmds") {
-      let list = "**🤖 Commands:**\n";
-      for (const [name, desc] of Object.entries(commands)) list += `\`!${name}\` → ${desc}\n`;
-      await message.channel.send(list);
-    }
-    if (commandName === "logs")
-      await message.author.send("📂 Logs are automatically sent to your DMs from the dashboard authorization.");
-    if (commandName === "dashboard")
-      await message.reply("🌐 Open the bot dashboard: http://localhost:3000/dashboard");
+    switch (commandName) {
+      case "ping":
+        await message.reply("🏓 Pong!");
+        break;
 
-    await logEvent(`Command !${commandName} by ${message.author.tag} in #${message.channel.name}`);
+      case "status":
+        await message.reply(
+          `✅ Online as ${client.user.tag}\n🌍 Servers: ${client.guilds.cache.size}`
+        );
+        break;
+
+      case "cmds":
+        let list = "**🤖 Available Commands:**\n\n";
+        for (const [name, desc] of Object.entries(commands)) {
+          let note = "";
+          if (name === "logs" || name === "dashboard") note = " (Dashboard Only)";
+          list += `\`!${name}\` → ${desc}${note}\n`;
+        }
+        await message.channel.send(list);
+        break;
+
+      case "logs":
+        await message.author.send(
+          "📂 Logs are automatically sent to your DMs from the dashboard authorization."
+        );
+        break;
+
+      case "dashboard":
+        await message.reply("🌐 Open the bot dashboard: http://localhost:3000/dashboard");
+        break;
+
+      default:
+        await message.reply("❌ Unknown command");
+    }
+
+    await logEvent(`Command !${commandName} used by ${message.author.tag} in #${message.channel.name}`);
   } catch (err) {
     console.error("Command error:", err);
     message.reply("⚠️ Error running command.");
