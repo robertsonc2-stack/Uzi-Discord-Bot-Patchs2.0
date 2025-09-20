@@ -1,21 +1,21 @@
 // server.js
 require("dotenv").config();
 const http = require("http");
-const fs = require("fs");
-const path = require("path");
 const querystring = require("querystring");
 const serverSettingsModule = require("./serverSettings.js");
-const { commands } = require("./index.js");
+const { getCommands } = require("./commandsRegistry.js");
 
 const PORT = 3000;
-const MY_USER_ID = "YOUR_USER_ID_HERE"; // Replace with your Discord ID
+const MY_USER_ID = "YOUR_USER_ID_HERE"; // replace with your Discord ID
 
 const server = http.createServer((req, res) => {
+  // --- Dashboard redirect from root ---
   if (req.method === "GET" && req.url === "/") {
     res.writeHead(302, { Location: "/dashboard" });
     return res.end();
   }
 
+  // --- Dashboard page ---
   if (req.method === "GET" && req.url.startsWith("/dashboard")) {
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
     const userId = parsedUrl.searchParams.get("userId") || MY_USER_ID;
@@ -25,7 +25,7 @@ const server = http.createServer((req, res) => {
     const isOwner = userId === MY_USER_ID;
     const readonly = isOwner ? "" : "readonly";
 
-    const allCommands = Object.entries(commands)
+    const allCommands = Object.entries(getCommands())
       .map(([cmd, info]) => `<li><b>${cmd}</b>: ${info.description}</li>`).join("");
 
     const html = `
@@ -77,6 +77,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // --- Update settings ---
   if (req.method === "POST" && req.url === "/update-settings") {
     let body = "";
     req.on("data", chunk => body += chunk.toString());
