@@ -1,3 +1,4 @@
+// index.js
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const OpenAI = require("openai");
@@ -11,7 +12,7 @@ const client = new Client({
   ],
 });
 
-// OpenAI client
+// OpenAI setup
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -20,19 +21,16 @@ client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-// Function to get AI reply as Uzi Doorman
+// Function to get Uzi-style replies
 async function getUziReply(userMessage) {
-  const prompt = `
-You are Uzi Doorman from Murder Drones. You are sarcastic, rebellious, confident, and have dark humor. 
-Reply to the user's message as Uzi would, in-character. Keep it short and snarky. 
-User said: "${userMessage}"
-Uzi reply:
-`;
-
   const response = await openai.chat.completions.create({
     model: "gpt-3.5-turbo",
     messages: [
-      { role: "system", content: "You are Uzi Doorman from Murder Drones. Stay in character." },
+      {
+        role: "system",
+        content:
+          "You are Uzi Doorman from Murder Drones. Respond sarcastically, darkly funny, and rebellious.",
+      },
       { role: "user", content: userMessage },
     ],
     temperature: 0.8,
@@ -48,6 +46,7 @@ client.on("messageCreate", async (message) => {
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
+  // Uzi AI Roleplay command
   if (command === "uzi") {
     const userMessage = args.join(" ");
     if (!userMessage) {
@@ -60,21 +59,33 @@ client.on("messageCreate", async (message) => {
       const reply = await getUziReply(userMessage);
       return message.channel.send(reply);
     } catch (err) {
-      console.error(err);
-      return message.channel.send(
-        "⚠️ Uzi is too busy being sarcastic right now. Try again."
-      );
+      console.error("OpenAI Error:", err);
+      return message.channel.send("⚠️ Uzi is being moody. Try again later.");
     }
   }
 
+  // Ping command
   if (command === "ping") {
     return message.reply("🏓 Pong!");
   }
 
+  // Hello command
   if (command === "hello") {
     return message.reply(`Hello, ${message.author.username}! 👋`);
+  }
+
+  // Help command
+  if (command === "help") {
+    return message.channel.send(
+      "**🤖 Available Commands:**\n" +
+        "`!uzi <message>` → Talk to Uzi Doorman (AI roleplay)\n" +
+        "`!ping` → Test if the bot is alive\n" +
+        "`!hello` → Greet the bot\n" +
+        "`!help` → Show this help message"
+    );
   }
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
 
