@@ -15,7 +15,6 @@ const client = new Client({
 // --- Command Registry ---
 const commands = {};
 
-// Helper to register commands
 function registerCommand(name, description, callback) {
   commands[name] = { description, callback };
 }
@@ -26,8 +25,23 @@ registerCommand("status", "Show current bot status", (message, args, settings) =
 });
 
 registerCommand("dashboard", "Open server dashboard (auto-detects your guild & user ID)", (message, args, settings) => {
-  const dashboardURL = `http://localhost:3000/?guildId=${message.guild.id}&userId=${message.author.id}`;
-  message.channel.send(`🔗 Access your dashboard: ${dashboardURL}`);
+  const dashboardURL = `http://localhost:3000/dashboard?guildId=${message.guild.id}&userId=${message.author.id}`;
+  message.channel.send({
+    content: `🔗 Click here to access your dashboard:`,
+    components: [
+      {
+        type: 1, // ActionRow
+        components: [
+          {
+            type: 2, // Button
+            label: "Open Dashboard",
+            style: 5, // Link button
+            url: dashboardURL
+          }
+        ]
+      }
+    ]
+  });
 });
 
 registerCommand("cmds", "Show all commands", (message) => {
