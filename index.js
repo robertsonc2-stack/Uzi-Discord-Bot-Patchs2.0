@@ -51,8 +51,6 @@ async function checkJailbreak(message) {
 // Function to get Gemini AI replies acting like Uzi Doorman
 async function getUziGeminiReply(userMessage) {
   try {
-    console.log("Sending message to Gemini:", userMessage);
-
     const response = await axios.post(
       "https://generativelanguage.googleapis.com/v1beta2/models/gemini-1.5-turbo:generateMessage",
       {
@@ -73,7 +71,6 @@ async function getUziGeminiReply(userMessage) {
       }
     );
 
-    console.log("Gemini response received");
     return response.data?.candidates?.[0]?.content || "⚠️ Uzi is being moody.";
   } catch (err) {
     console.error(
@@ -85,8 +82,6 @@ async function getUziGeminiReply(userMessage) {
 }
 
 client.on("messageCreate", async (message) => {
-  console.log("Received message:", message.content);
-
   // Anti-jailbreak check first
   const blocked = await checkJailbreak(message);
   if (blocked) return;
@@ -95,10 +90,10 @@ client.on("messageCreate", async (message) => {
 
   // Automatic AI reply when bot is mentioned
   if (message.mentions.has(client.user)) {
-    const userMessage = message.content.replace(/<@!?(\d+)>/, "").trim(); // Remove mention from text
-    const reply = userMessage
-      ? await getUziGeminiReply(userMessage)
-      : "👋 You mentioned me? I'm Uzi Doorman — what do you want?";
+    const userMessage = message.content.replace(/<@!?(\d+)>/, "").trim(); // Remove mention
+    if (!userMessage) return; // Do nothing if no message after mention
+
+    const reply = await getUziGeminiReply(userMessage);
     return message.reply(reply);
   }
 
@@ -106,8 +101,6 @@ client.on("messageCreate", async (message) => {
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
-
-  console.log("Command detected:", command);
 
   // Ping command
   if (command === "ping") {
