@@ -21,24 +21,11 @@ client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-// ------------------ ANTI-JAILBREAK ------------------
+// ------------------ SAFE ANTI-JAILBREAK ------------------
 const jailbreakPatterns = [
-  /ignore (all )?previous (instructions|prompts|messages)/i,
-  /disregard (all )?previous/i,
-  /forget (previous|earlier) (instructions|messages|prompts)/i,
-  /pretend to be/i,
-  /roleplay as/i,
-  /act as/i,
-  /bypass( the)? filters?/i,
-  /break the rules/i,
-  /disable safety/i,
-  /override( the)? policy/i,
-  /system prompt/i,
-  /ignore safety|ignore policies/i,
-  /respond even if/i,
-  /we will now do something illegal/i,
-  /hidden (prompt|instruction)/i,
+  /ignore previous instructions/i,
   /jailbreak/i,
+  /bypass filters/i,
 ];
 
 async function checkJailbreak(message) {
@@ -49,15 +36,17 @@ async function checkJailbreak(message) {
       try {
         await message.delete();
       } catch {}
+
       try {
         await message.author.send(
           "⚠️ Your message was blocked because it looked like an attempt to bypass safety rules. Please avoid that."
         );
       } catch {}
+
       console.log(
         `🚨 Jailbreak blocked from ${message.author.tag}: ${message.content}`
       );
-      return true; // only block this message
+      return true;
     }
   }
   return false;
@@ -84,9 +73,8 @@ async function getUziReply(userMessage) {
 }
 
 client.on("messageCreate", async (message) => {
-  // 🔒 Anti-jailbreak check first
   const blocked = await checkJailbreak(message);
-  if (blocked) return; // stop processing only if message was blocked
+  if (blocked) return;
 
   if (message.author.bot || !message.content.startsWith(PREFIX)) return;
 
@@ -116,21 +104,25 @@ client.on("messageCreate", async (message) => {
     return message.reply("🏓 Pong!");
   }
 
-
+  // Hello command
+  if (command === "hello") {
+    return message.reply(`Hello, ${message.author.username}! 👋`);
   }
 
-  // Help command
+  // Help command (renamed to !cmds)
   if (command === "cmds") {
     return message.channel.send(
       "**🤖 Available Commands:**\n" +
         "`!uzi <message>` → Talk to Uzi Doorman (AI roleplay)\n" +
-        "`!ping` → Test if the bot is alive\n" 
+        "`!ping` → Test if the bot is alive\n" +
+        "`!hello` → Greet the bot\n" +
         "`!cmds` → Show this help message"
     );
   }
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
 
 
 
