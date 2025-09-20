@@ -1,28 +1,39 @@
 const http = require("http");
 const url = require("url");
-const { addLogListener, getLogs, getCommands } = require("./shared.js");
-const serverSettings = require("./serverSettings.js");
 
 const PORT = 3000;
 
-// Store connected log clients
+// 🔹 Command list (add all your commands here)
+const commands = {
+  "!help": "Show available commands",
+  "!cmds": "List all commands",
+  "!dashboard": "Open the bot dashboard",
+  "!logs": "Show logs inside Discord",
+  "!dashboardlogs": "Show logs inside dashboard",
+};
+
+// 🔹 Logs
+let logs = [];
 let logClients = [];
 
-// Push logs to all connected clients
-function sendLogUpdate(entry) {
-  logClients.forEach((res) => res.write(`data: ${JSON.stringify(entry)}\n\n`));
+function addLog(entry) {
+  const time = new Date().toLocaleTimeString();
+  const msg = `[${time}] ${entry}`;
+  logs.push(msg);
+
+  // Keep logs short (last 100)
+  if (logs.length > 100) logs.shift();
+
+  // Push to all SSE clients
+  logClients.forEach((res) => res.write(`data: ${JSON.stringify(msg)}\n\n`));
+  console.log(msg); // also print in console
 }
 
-// Subscribe new logs from shared.js
-addLogListener((entry) => {
-  sendLogUpdate(entry);
-});
-
-// Create the server
+// Create the HTTP server
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
 
-  // 🔹 Live log stream (SSE)
+  // 🔹 Live logs stream (SSE)
   if (parsedUrl.pathname === "/logs/stream") {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -30,8 +41,8 @@ const server = http.createServer((req, res) => {
       Connection: "keep-alive",
     });
 
-    // Send history when connected
-    res.write(`data: ${JSON.stringify({ history: getLogs() })}\n\n`);
+    // Send history
+    res.write(`data: ${JSON.stringify({ history: logs })}\n\n`);
 
     logClients.push(res);
 
@@ -43,7 +54,6 @@ const server = http.createServer((req, res) => {
 
   // 🔹 Dashboard page
   if (parsedUrl.pathname === "/dashboard") {
-    const allCommands = getCommands();
     const html = `
       <!DOCTYPE html>
       <html>
@@ -66,8 +76,8 @@ const server = http.createServer((req, res) => {
           <div class="card">
             <h2>📜 Commands</h2>
             <ul>
-              ${Object.keys(allCommands)
-                .map((cmd) => `<li><b>${cmd}</b>: ${allCommands[cmd]}</li>`)
+              ${Object.entries(commands)
+                .map(([cmd, desc]) => `<li><b>${cmd}</b>: ${desc}</li>`)
                 .join("")}
             </ul>
           </div>
@@ -103,11 +113,10 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 🔹 Commands page
+  // 🔹 Commands list page
   if (parsedUrl.pathname === "/cmds") {
-    const allCommands = getCommands();
-    const cmdsList = Object.keys(allCommands)
-      .map((cmd) => `<li><b>${cmd}</b>: ${allCommands[cmd]}</li>`)
+    const cmdsList = Object.entries(commands)
+      .map(([cmd, desc]) => `<li><b>${cmd}</b>: ${desc}</li>`)
       .join("");
 
     const html = `
@@ -133,6 +142,8 @@ const server = http.createServer((req, res) => {
 // Start server
 server.listen(PORT, () => {
   console.log(`🌐 Web dashboard running at http://localhost:${PORT}`);
+  addLog("Dashboard started at http://localhost:3000");
 });
 
-module.exports = server;
+// Export so index.js can use logs
+module.exports = { addLog, commands };
