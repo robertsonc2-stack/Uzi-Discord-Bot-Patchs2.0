@@ -31,9 +31,7 @@ function addLog(entry) {
   logs.push(msg);
   if (logs.length > 100) logs.shift();
 
-  // Send to dashboard clients
   logClients.forEach((res) => res.write(`data: ${JSON.stringify(msg)}\n\n`));
-
   console.log(msg);
 }
 
@@ -115,12 +113,27 @@ const server = http.createServer((req, res) => {
           <h2>Bot Settings</h2>
           <label>Status Message:</label><br/>
           <input type="text" id="statusMsg" value="${botSettings.statusMessage}" />
-          <button onclick="updateStatus()">Update</button>
+          <button onclick="updateStatus()">Change Status</button>
+
+          <p>Set User & Guild access:</p>
+          <input type="text" id="guildId" placeholder="Enter Guild ID"/>
+          <input type="text" id="userAccessId" placeholder="Enter User ID"/>
+          <button onclick="updateAccess()">Set Access</button>
+
           <p id="statusUpdateMsg"></p>
+
           <script>
             function updateStatus() {
               const val = document.getElementById('statusMsg').value;
               fetch('/update-status?msg=' + encodeURIComponent(val))
+                .then(res => res.text())
+                .then(msg => { document.getElementById('statusUpdateMsg').textContent = msg; });
+            }
+
+            function updateAccess() {
+              const guildId = document.getElementById('guildId').value;
+              const userId = document.getElementById('userAccessId').value;
+              fetch('/set-access?guild=' + guildId + '&user=' + userId)
                 .then(res => res.text())
                 .then(msg => { document.getElementById('statusUpdateMsg').textContent = msg; });
             }
@@ -182,6 +195,20 @@ const server = http.createServer((req, res) => {
     if (updateBotStatusFunction) updateBotStatusFunction();
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end(`✅ Status updated to: ${msg}`);
+    return;
+  }
+
+  // Set access endpoint
+  if (parsedUrl.pathname === "/set-access") {
+    if (!authorizedUserId) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Unauthorized");
+      return;
+    }
+    const guild = parsedUrl.query.guild || "N/A";
+    const user = parsedUrl.query.user || "N/A";
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(`✅ Access set. Guild: ${guild}, User: ${user}`);
     return;
   }
 
