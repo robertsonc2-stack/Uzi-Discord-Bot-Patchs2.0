@@ -26,7 +26,6 @@ const jailbreakPatterns = [
   /ignore (all )?previous (instructions|prompts|messages)/i,
   /disregard (all )?previous/i,
   /forget (previous|earlier) (instructions|messages|prompts)/i,
-  /you are now/i,
   /pretend to be/i,
   /roleplay as/i,
   /act as/i,
@@ -43,28 +42,22 @@ const jailbreakPatterns = [
 ];
 
 async function checkJailbreak(message) {
-  if (message.author.bot) return false;
+  if (!message.content || message.author.bot) return false;
 
   for (const pattern of jailbreakPatterns) {
     if (pattern.test(message.content)) {
       try {
         await message.delete();
-      } catch (err) {
-        console.warn("⚠️ Could not delete jailbreak message:", err.message);
-      }
-
+      } catch {}
       try {
         await message.author.send(
           "⚠️ Your message was blocked because it looked like an attempt to bypass safety rules. Please avoid that."
         );
-      } catch {
-        /* ignore if DM fails */
-      }
-
+      } catch {}
       console.log(
-        `🚨 Jailbreak attempt blocked from ${message.author.tag}: ${message.content}`
+        `🚨 Jailbreak blocked from ${message.author.tag}: ${message.content}`
       );
-      return true;
+      return true; // only block this message
     }
   }
   return false;
@@ -91,9 +84,9 @@ async function getUziReply(userMessage) {
 }
 
 client.on("messageCreate", async (message) => {
-  // 🔒 Anti-jailbreak check FIRST
+  // 🔒 Anti-jailbreak check first
   const blocked = await checkJailbreak(message);
-  if (blocked) return;
+  if (blocked) return; // stop processing only if message was blocked
 
   if (message.author.bot || !message.content.startsWith(PREFIX)) return;
 
@@ -123,9 +116,7 @@ client.on("messageCreate", async (message) => {
     return message.reply("🏓 Pong!");
   }
 
-  // Hello command
-  if (command === "hello") {
-    return message.reply(`Hello, ${message.author.username}! 👋`);
+
   }
 
   // Help command
@@ -133,8 +124,7 @@ client.on("messageCreate", async (message) => {
     return message.channel.send(
       "**🤖 Available Commands:**\n" +
         "`!uzi <message>` → Talk to Uzi Doorman (AI roleplay)\n" +
-        "`!ping` → Test if the bot is alive\n" +
-        "`!hello` → Greet the bot\n" +
+        "`!ping` → Test if the bot is alive\n" 
         "`!cmds` → Show this help message"
     );
   }
