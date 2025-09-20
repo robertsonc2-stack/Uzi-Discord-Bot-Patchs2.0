@@ -3,11 +3,13 @@ require("dotenv").config();
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const querystring = require("querystring");
 
 const PORT = 3000;
 
 // In-memory server settings
 const serverSettings = {};
+const accessControl = {}; // { guildId: [allowedUserId1, allowedUserId2, ...] }
 
 function getSettings(guildId) {
   return serverSettings[guildId] || { botPrefix: "!", statusMessage: "Uzi is online" };
@@ -16,7 +18,19 @@ function setSettings(guildId, settings) {
   serverSettings[guildId] = { ...getSettings(guildId), ...settings };
 }
 
-module.exports = { getSettings, setSettings };
+function getAllowedUsers(guildId) {
+  return accessControl[guildId] || [];
+}
+function addAllowedUser(guildId, userId) {
+  if (!accessControl[guildId]) accessControl[guildId] = [];
+  if (!accessControl[guildId].includes(userId)) accessControl[guildId].push(userId);
+}
+function removeAllowedUser(guildId, userId) {
+  if (!accessControl[guildId]) return;
+  accessControl[guildId] = accessControl[guildId].filter(id => id !== userId);
+}
+
+module.exports = { getSettings, setSettings, getAllowedUsers, addAllowedUser, removeAllowedUser };
 
 // Serve static files
 function serveFile(res, filePath, contentType, code = 200) {
@@ -37,11 +51,19 @@ const server = http.createServer((req, res) => {
     let body = "";
     req.on("data", chunk => { body += chunk.toString(); });
     req.on("end", () => {
-      const params = new URLSearchParams(body);
-      const guildId = params.get("guildId");
-      if (!guildId) {
+      const params = querystring.parse(body);
+      const guildId = params.guildId;
+      const userId = params.userId;
+      if (!guildId || !userId) {
         res.writeHead(400, { "Content-Type": "text/plain" });
-        res.end("Guild ID missing");
+        res.end("Guild ID and User ID are required");
+        return;
+      }
+
+      // Check access
+      if (!getAllowedUsers(guildId).includes(userId)) {
+        res.writeHead(403, { "Content-Type": "text/plain" });
+        res.end("❌ You do not have permission to edit this server's settings");
         return;
       }
 
@@ -58,30 +80,131 @@ const server = http.createServer((req, res) => {
             h1 { color: #1DB954; }
             .container { max-width: 600px; margin: auto; }
             .section { margin-bottom: 1.5rem; padding: 1rem; background: #1E1E1E; border-radius: 8px; }
+            input, button { padding: 10px; font-size: 16px; margin-top: 0.5rem; width: 100%; }
+            button { cursor: pointer; background: #1DB954; color: #fff; border: none; border-radius: 5px; }
           </style>
         </head>
         <body>
           <div class="container">
             <h1>Server Dashboard</h1>
-            <div class="section">
-              <h2>Guild ID:</h2>
-              <p>${guildId}</p>
-            </div>
+            <div class="section"><h2>Guild ID:</h2><p>${guildId}</p></div>
+            <div class="section"><h2>User ID:</h2><p>${userId}</p></div>
             <div class="section">
               <h2>Bot Prefix:</h2>
-              <p>${settings.botPrefix}</p>
+              <input id="botPrefix" value="${settings.botPrefix}" />
             </div>
             <div class="section">
               <h2>Status Message:</h2>
-              <p>${settings.statusMessage}</p>
+              <input id="statusMessage" value="${settings.statusMessage}" />
+              <button onclick="updateSettings()">Save Settings</button>
             </div>
           </div>
+          <script>
+            function updateSettings() {
+              const prefix = document.getElementById('botPrefix').value;
+              const status = document.getElementById('statusMessage').value;
+              fetch('/update-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'guildId=${guildId}&botPrefix=' + encodeURIComponent(prefix) + '&statusMessage=' + encodeURIComponent(status)
+              })
+              .then(res => res.text())
+              .then(msg => alert(msg))
+              .catch(err => alert('Error: ' + err));
+            }
+          </script>
         </body>
         </html>
       `;
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end(html);
     });
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/update-settings") {
+    let body = "";
+    req.on("data", chunk => { body += chunk.toString(); });
+    req.on("end", () => {
+      const params = querystring.parse(body);
+      const guildId = params.guildId;
+      if (!guildId) {
+        res.writeHead(400, { "Content-Type": "text/plain" });
+        res.end("Guild ID missing");
+        return;
+      }
+      setSettings(guildId, { botPrefix: params.botPrefix, statusMessage: params.statusMessage });
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("✅ Settings updated successfully!");
+    });
+    return;
+  }
+
+  // --- Access Control Page ---
+  if (req.method === "GET" && req.url === "/access-control") {
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Access Control</title>
+        <style>
+          body { font-family: Arial, sans-serif; background: #121212; color: #fff; padding: 2rem; }
+          h1 { color: #1DB954; }
+          .container { max-width: 600px; margin: auto; }
+          input, button { padding: 10px; font-size: 16px; margin-top: 0.5rem; width: 100%; }
+          button { cursor: pointer; background: #1DB954; color: #fff; border: none; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Access Control</h1>
+          <p>Add a user ID to allow editing server settings:</p>
+          <input id="guildIdInput" placeholder="Enter Guild ID" />
+          <input id="userIdInput" placeholder="Enter User ID to allow" />
+          <button onclick="addUser()">Add User</button>
+          <button onclick="removeUser()">Remove User</button>
+          <p id="message"></p>
+          <script>
+            function addUser() {
+              const guildId = document.getElementById('guildIdInput').value.trim();
+              const userId = document.getElementById('userIdInput').value.trim();
+              if (!guildId || !userId) return alert('Enter both Guild ID and User ID');
+              fetch('/modify-access?guildId=' + encodeURIComponent(guildId) + '&userId=' + encodeURIComponent(userId) + '&action=add')
+                .then(res => res.text()).then(msg => document.getElementById('message').innerText = msg);
+            }
+            function removeUser() {
+              const guildId = document.getElementById('guildIdInput').value.trim();
+              const userId = document.getElementById('userIdInput').value.trim();
+              if (!guildId || !userId) return alert('Enter both Guild ID and User ID');
+              fetch('/modify-access?guildId=' + encodeURIComponent(guildId) + '&userId=' + encodeURIComponent(userId) + '&action=remove')
+                .then(res => res.text()).then(msg => document.getElementById('message').innerText = msg);
+            }
+          </script>
+        </div>
+      </body>
+      </html>
+    `;
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
+
+  // --- Modify Access ---
+  if (req.method === "GET" && req.url.startsWith("/modify-access")) {
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const guildId = parsedUrl.searchParams.get("guildId");
+    const userId = parsedUrl.searchParams.get("userId");
+    const action = parsedUrl.searchParams.get("action");
+    if (!guildId || !userId || !action) {
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Missing parameters");
+      return;
+    }
+    if (action === "add") addAllowedUser(guildId, userId);
+    if (action === "remove") removeAllowedUser(guildId, userId);
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(`✅ User ${userId} ${action === "add" ? "added" : "removed"} for Guild ${guildId}`);
     return;
   }
 
@@ -92,30 +215,31 @@ const server = http.createServer((req, res) => {
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <title>Server Dashboard</title>
+        <title>Server Dashboard Login</title>
         <style>
           body { font-family: Arial, sans-serif; background: #121212; color: #fff; padding: 2rem; }
           h1 { color: #1DB954; }
           .container { max-width: 600px; margin: auto; }
-          button { padding: 10px 20px; font-size: 16px; background: #1DB954; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
-          input { padding: 10px; font-size: 16px; margin-top: 1rem; width: 100%; }
+          input, button { padding: 10px; font-size: 16px; margin-top: 1rem; width: 100%; }
+          button { cursor: pointer; background: #1DB954; color: #fff; border: none; border-radius: 5px; }
         </style>
       </head>
       <body>
         <div class="container">
-          <h1>Server Dashboard</h1>
-          <p>Click the button and enter your Guild ID to view your server settings:</p>
-          <input id="guildIdInput" placeholder="Enter your Guild ID" />
+          <h1>Server Dashboard Login</h1>
+          <input id="guildIdInput" placeholder="Enter Guild ID" />
+          <input id="userIdInput" placeholder="Enter Your User ID" />
           <button onclick="openDashboard()">Open Dashboard</button>
-
+          <p>Manage allowed users: <a href="/access-control" style="color:#1DB954;">Access Control Page</a></p>
           <script>
             function openDashboard() {
               const guildId = document.getElementById('guildIdInput').value.trim();
-              if (!guildId) return alert('Please enter a Guild ID');
+              const userId = document.getElementById('userIdInput').value.trim();
+              if (!guildId || !userId) return alert('Please enter both Guild ID and User ID');
               fetch('/get-dashboard', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'guildId=' + encodeURIComponent(guildId)
+                body: 'guildId=' + encodeURIComponent(guildId) + '&userId=' + encodeURIComponent(userId)
               })
               .then(res => res.text())
               .then(html => {
@@ -134,7 +258,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- Serve static files if exists ---
+  // --- Serve static files ---
   const filePath = path.join(__dirname, "public", req.url === "/" ? "index.html" : req.url);
   const extname = String(path.extname(filePath)).toLowerCase();
   const mimeTypes = {
