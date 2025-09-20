@@ -1,5 +1,7 @@
 # Uzi-Discord-Bot
 
+WARNING THIS README FILE IS NOT UP TO DATE DO NOT USE THIS BOT
+
 A Discord bot featuring a character from Murder Drones Called Uzi Doorman for roleplay interactions.
 
 ## Features
