@@ -29,5 +29,5 @@ client.on("messageCreate", (message) => {
 });
 
 // Login using your bot token
-client.login("MTQxMzg1MjQ5NTY4NzcxMjgxMg.GBQLYS.294-7AqVTKoimlKOg593hkxKeJCbRPBraGbcPI");
+client.login("MTQxMzg1MjQ5NTY4NzcxMjgxMg.Gvi5tH.T-hI7yAaPm138R04YvKKBpn7hTnpPosHPOEZOQ");
 
