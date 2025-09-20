@@ -18,7 +18,7 @@ app.use(express.json());
 // List bots
 app.get('/api/bots', function (req, res) {
     res.json([
-        { name: "Uzi-Doorman", description: "Roleplays as Uzi Doorman from Murder Drones", prefix: "/", status: "online" },
+        { name: "Uzi-Doorman", description: "Roleplays as Uzi Doorman from Murder Drones", prefix: "!", status: "online" },
         { name: "SD-N", description: "Roleplays as SD-N from Murder Drones", prefix: "/", status: "online" },
         { name: "SD-V", description: "Roleplays as SD-V from Murder Drones", prefix: "/", status: "online" }
     ]);
