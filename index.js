@@ -49,7 +49,6 @@ function cleanupOldLogs(days = 7) {
   });
 }
 
-// Run cleanup on start
 cleanupOldLogs(7);
 
 // ------------------ START SERVER.JS ------------------
@@ -97,7 +96,7 @@ isPortAvailable(portCheck, (available) => {
     });
   }
 
-  startBotWithLimitedRestarts();
+  startBot();
 });
 
 // ------------------ DISCORD BOT ------------------
@@ -112,7 +111,20 @@ function startBot() {
     partials: ["CHANNEL"],
   });
 
-  client.once("ready", () => log(`✅ Logged in as ${client.user.tag}`));
+  client.once("ready", async () => {
+    log(`✅ Logged in as ${client.user.tag}`);
+
+    // ------------------ DYNAMIC STATUS UPDATE ------------------
+    setInterval(() => {
+      client.guilds.cache.forEach(guild => {
+        const guildSettings = serverSettingsModule.getSettings(guild.id);
+        const statusMessage = guildSettings?.statusMessage || "Uzi is online";
+        try {
+          guild.me?.setNickname(`🤖 ${statusMessage}`).catch(() => {});
+        } catch {}
+      });
+    }, 60 * 1000); // Update every minute
+  });
 
   // ------------------ ANTI-JAILBREAK ------------------
   const jailbreakPatterns = [/ignore previous instructions/i, /jailbreak/i, /bypass filters/i];
@@ -180,6 +192,7 @@ function startBot() {
     if (command === "ping") return message.reply("🏓 Pong!");
     if (command === "status") return message.channel.send(statusMessage);
 
+    // ------------------ CMDS ------------------
     if (command === "cmds") {
       return message.channel.send(
         `**🤖 Commands (Prefix: ${botPrefix}):**\n` +
@@ -191,7 +204,7 @@ function startBot() {
       );
     }
 
-    // ------------------ DASHBOARD COMMAND ------------------
+    // ------------------ DASHBOARD ------------------
     if (command === "dashboard") {
       if (message.author.id !== OWNER_ID) {
         return message.reply("⚠️ You don’t have permission to view the dashboard.");
@@ -210,7 +223,7 @@ function startBot() {
       }
     }
 
-    // ------------------ OWNER LOGS COMMAND ------------------
+    // ------------------ LOGS ------------------
     if (command === "logs") {
       if (message.author.id !== OWNER_ID) return message.reply("⚠️ You don’t have permission.");
       const arg = args[0];
@@ -232,25 +245,3 @@ function startBot() {
   client.login(process.env.DISCORD_TOKEN).catch(err => { throw err; });
 }
 
-// ------------------ AUTO-RESTART BOT ------------------
-function startBotWithLimitedRestarts() {
-  let restartCount = 0;
-
-  async function launchBot() {
-    const mainGuildSettings = serverSettingsModule.getSettings(/* choose main guild */) || {};
-    const maxRestarts = mainGuildSettings.maxRestarts || 2;
-
-    try { await startBot(); } catch (err) { log(`🔴 Bot crashed: ${err.message}`); }
-
-    restartCount++;
-    if (restartCount <= maxRestarts) {
-      log(`♻️ Restarting Discord bot (${restartCount}/${maxRestarts}) in 5 seconds...`);
-      setTimeout(launchBot, 5000);
-    } else {
-      log("❌ Bot exceeded max restarts. Shutting down index.js and server.js...");
-      process.exit(1);
-    }
-  }
-
-  launchBot();
-}
