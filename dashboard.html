@@ -27,6 +27,11 @@
   <span id="prefix">!</span>
 </div>
 
+<!-- Secret Logs Button -->
+<div>
+  <button id="secretButton">Access Secret Logs</button>
+</div>
+
 <script>
 (async function askPassword() {
   const correctPassword = "secret77";
@@ -39,6 +44,7 @@
 
   const statusInput = document.getElementById("status");
   const changeButton = document.getElementById("changeStatus");
+  const secretButton = document.getElementById("secretButton");
   
   changeButton.addEventListener("click", async () => {
     const newStatus = statusInput.value.trim();
@@ -52,8 +58,14 @@
       alert("Error: " + err.message);
     }
   });
+
+  // Secret logs button click
+  secretButton.addEventListener("click", () => {
+    window.location.href = "/secret.html";
+  });
 })();
 </script>
 
 </body>
 </html>
+
