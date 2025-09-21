@@ -45,7 +45,7 @@
     if (!newStatus) return alert("Please enter a status message.");
 
     try {
-      const response = await fetch(`/change-status?status=${encodeURIComponent(newStatus)}&password=${password}`);
+      const response = await fetch(`/change-status?status=${encodeURIComponent(newStatus)}`);
       if (!response.ok) throw new Error("Failed to change status");
       alert("Status updated successfully!");
     } catch (err) {
@@ -57,3 +57,4 @@
 
 </body>
 </html>
+
