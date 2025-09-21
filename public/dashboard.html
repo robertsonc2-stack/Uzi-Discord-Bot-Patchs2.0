@@ -10,32 +10,56 @@
     input, button { padding: 8px; margin: 5px 0; border-radius: 5px; border: none; }
     button { background: #00bfff; color: white; cursor: pointer; }
     button:hover { background: #009acd; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
   <h1>Bot Dashboard</h1>
 
-  <div class="section">
-    <h2>Bot Settings</h2>
-    <p><strong>Prefix:</strong> <span id="bot-prefix">!</span></p>
-    <p>
-      <label>Status Message:</label><br>
-      <input type="text" id="status-input" placeholder="Enter new status">
-      <button onclick="changeStatus()">Change Status</button>
-    </p>
-    <button onclick="goSecret()">Go to Secret Page</button>
+  <div id="password-section" class="section">
+    <h2>Enter Dashboard Password</h2>
+    <input type="password" id="dashboard-password" placeholder="Enter password">
+    <button onclick="checkPassword()">Submit</button>
   </div>
 
-  <div class="section">
-    <h2>Logs</h2>
-    <pre id="logs" style="max-height:200px; overflow-y:auto;"></pre>
-    <button onclick="fetchLogs()">Refresh Logs</button>
+  <div id="dashboard-content" class="hidden">
+    <div class="section">
+      <h2>Bot Settings</h2>
+      <p><strong>Prefix:</strong> <span id="bot-prefix">!</span></p>
+      <p>
+        <label>Status Message:</label><br>
+        <input type="text" id="status-input" placeholder="Enter new status">
+        <button onclick="changeStatus()">Change Status</button>
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>Logs</h2>
+      <pre id="logs" style="max-height:200px; overflow-y:auto;"></pre>
+      <button onclick="fetchLogs()">Refresh Logs</button>
+    </div>
   </div>
 
 <script>
+  const dashboardPassword = "key77";
+  const passwordSection = document.getElementById("password-section");
+  const dashboardContent = document.getElementById("dashboard-content");
   const prefixEl = document.getElementById("bot-prefix");
   const statusInput = document.getElementById("status-input");
   const logsEl = document.getElementById("logs");
+
+  function checkPassword() {
+    const pwd = document.getElementById("dashboard-password").value;
+    if (pwd === dashboardPassword) {
+      passwordSection.classList.add("hidden");
+      dashboardContent.classList.remove("hidden");
+      fetchStatus();
+      fetchLogs();
+      alert("Access granted!");
+    } else {
+      alert("Wrong password!");
+    }
+  }
 
   async function fetchStatus() {
     const res = await fetch("/api/status");
@@ -60,14 +84,7 @@
     const data = await res.json();
     logsEl.textContent = data.join("\n");
   }
-
-  function goSecret() {
-    window.location.href = "/secret";
-  }
-
-  // Initial load
-  fetchStatus();
-  fetchLogs();
 </script>
 </body>
 </html>
+
