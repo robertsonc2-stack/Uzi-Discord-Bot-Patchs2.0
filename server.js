@@ -5,20 +5,23 @@ const path = require("path");
 let updateBotStatusCallback = null;
 let logs = [];
 
+const DASHBOARD_PASSWORD = "secret77";
+const SECRET_PASSWORD = "owner77";
+
 // Register a bot status updater from index.js
 function setUpdateBotStatus(callback) {
   updateBotStatusCallback = callback;
 }
 
 // Trigger the bot status update
-function triggerUpdateBotStatus() {
-  if (updateBotStatusCallback) updateBotStatusCallback();
+function triggerUpdateBotStatus(newStatus) {
+  if (updateBotStatusCallback) updateBotStatusCallback(newStatus);
 }
 
 // Add a log entry
 function addLog(message) {
   const timestamp = new Date().toLocaleString();
-  logs.push(`[${timestamp}] ${message}`); // ✅ fixed template literal
+  logs.push(`[${timestamp}] ${message}`);
 }
 
 // Return all logs
@@ -28,31 +31,47 @@ function getLogs() {
 
 // HTTP server
 const server = http.createServer((req, res) => {
-  let filePath = "." + req.url;
-  if (filePath === "./") filePath = "./dashboard.html";
-
   const url = new URL(req.url, `http://${req.headers.host}`);
   const password = url.searchParams.get("password");
+  let filePath = "." + url.pathname;
 
-  // Password protection
-  if (filePath.startsWith("./dashboard.html")) {
-    if (password !== "secret77") {
+  if (filePath === "./") filePath = "./dashboard.html";
+
+  // Dashboard password check
+  if (filePath.endsWith("dashboard.html")) {
+    if (password !== DASHBOARD_PASSWORD) {
       res.writeHead(401, { "Content-Type": "text/plain" });
       res.end("Unauthorized: Invalid Dashboard Password");
       return;
     }
   }
 
-  if (filePath.startsWith("./secret.html")) {
-    if (password !== "owner77") {
+  // Secret page password check
+  if (filePath.endsWith("secret.html") || filePath.startsWith("./logs")) {
+    if (password !== SECRET_PASSWORD) {
       res.writeHead(401, { "Content-Type": "text/plain" });
       res.end("Unauthorized: Invalid Secret Page Password");
       return;
     }
   }
 
-  // Serve logs via API
-  if (filePath.startsWith("./logs")) {
+  // Change bot status endpoint
+  if (url.pathname === "/change-status") {
+    if (password !== DASHBOARD_PASSWORD) {
+      res.writeHead(401, { "Content-Type": "text/plain" });
+      res.end("Unauthorized: Invalid Password");
+      return;
+    }
+    const newStatus = url.searchParams.get("status") || "Online";
+    triggerUpdateBotStatus(newStatus);
+    addLog(`Bot status changed to: ${newStatus}`);
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("Status updated successfully");
+    return;
+  }
+
+  // Logs API endpoint
+  if (url.pathname === "/logs") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(getLogs()));
     return;
@@ -68,15 +87,7 @@ const server = http.createServer((req, res) => {
     ".png": "image/png",
     ".jpg": "image/jpg",
     ".gif": "image/gif",
-    ".wav": "audio/wav",
-    ".mp4": "video/mp4",
-    ".woff": "application/font-woff",
-    ".ttf": "application/font-ttf",
-    ".eot": "application/vnd.ms-fontobject",
-    ".otf": "application/font-otf",
-    ".svg": "application/image/svg+xml",
   };
-
   const contentType = mimeTypes[extname] || "application/octet-stream";
 
   fs.readFile(filePath, (error, content) => {
@@ -107,3 +118,4 @@ module.exports = {
   addLog,
   getLogs
 };
+
