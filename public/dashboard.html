@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -31,7 +30,6 @@
     const statusInput = document.getElementById("status");
     const changeButton = document.getElementById("changeStatus");
     
-    // Change bot status
     changeButton.addEventListener("click", async () => {
       const newStatus = statusInput.value.trim();
       if (!newStatus) return alert("Please enter a status message.");
