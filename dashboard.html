@@ -1,110 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bot Dashboard</title>
-<style>
-    body { font-family: Arial, sans-serif; background: #1f1f1f; color: #f0f0f0; }
-    .container { max-width: 600px; margin: 50px auto; padding: 20px; background: #2b2b2b; border-radius: 10px; }
-    h1 { text-align: center; }
-    label { display: block; margin-top: 15px; }
-    input[type="text"], input[type="password"] { width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: none; }
-    button { margin-top: 15px; padding: 10px 20px; border-radius: 5px; border: none; background: #4caf50; color: #fff; cursor: pointer; }
-    button:hover { background: #45a049; }
-    .hidden { display: none; }
-</style>
+  <meta charset="UTF-8" />
+  <title>Bot Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; text-align: center; padding: 50px; }
+    #container { background: white; padding: 20px; border-radius: 10px; width: 400px; margin: auto; }
+    input, button { padding: 10px; margin: 5px; width: 90%; }
+    h1 { color: #333; }
+  </style>
 </head>
 <body>
-<div class="container">
+  <div id="container">
     <h1>Bot Dashboard</h1>
-
-    <div id="password-section">
-        <label for="password">Enter Dashboard Password:</label>
-        <input type="password" id="password" placeholder="Password">
-        <button id="password-btn">Submit</button>
-        <p id="password-error" style="color: red;"></p>
+    <div id="loginBox">
+      <input type="password" id="password" placeholder="Enter dashboard password" />
+      <button onclick="login()">Login</button>
     </div>
 
-    <div id="dashboard-section" class="hidden">
-        <p><strong>Bot Prefix:</strong> <span id="bot-prefix">!</span></p>
-        <p><strong>Bot Status:</strong> <span id="bot-status">Loading...</span></p>
-
-        <label for="status-input">Change Bot Status:</label>
-        <input type="text" id="status-input" placeholder="New status">
-        <button id="status-btn">Change Status</button>
-
-        <p id="status-msg" style="color: lightgreen;"></p>
-
-        <button id="secret-btn">Go to Secret Page</button>
+    <div id="dashboard" style="display:none;">
+      <h2>Update Bot Status</h2>
+      <input id="statusInput" type="text" placeholder="Enter new status" />
+      <button onclick="updateStatus()">Update</button>
+      <p id="msg"></p>
+      <hr />
+      <button onclick="goSecret()">Go to Secret Logs</button>
     </div>
-</div>
+  </div>
 
-<script>
-const DASHBOARD_PASSWORD = "secret77";
-
-const passwordSection = document.getElementById("password-section");
-const dashboardSection = document.getElementById("dashboard-section");
-const passwordInput = document.getElementById("password");
-const passwordBtn = document.getElementById("password-btn");
-const passwordError = document.getElementById("password-error");
-
-const botPrefixSpan = document.getElementById("bot-prefix");
-const botStatusSpan = document.getElementById("bot-status");
-const statusInput = document.getElementById("status-input");
-const statusBtn = document.getElementById("status-btn");
-const statusMsg = document.getElementById("status-msg");
-const secretBtn = document.getElementById("secret-btn");
-
-// Password handling (ask once)
-passwordBtn.addEventListener("click", () => {
-    const value = passwordInput.value.trim();
-    if (value === DASHBOARD_PASSWORD) {
-        passwordSection.classList.add("hidden");
-        dashboardSection.classList.remove("hidden");
-        fetchBotStatus();
-        setInterval(fetchBotStatus, 5000); // refresh status every 5 seconds
-    } else {
-        passwordError.textContent = "Wrong password!";
+  <script>
+    function login() {
+      const pw = document.getElementById("password").value;
+      if (pw === "secret77") {
+        document.getElementById("loginBox").style.display = "none";
+        document.getElementById("dashboard").style.display = "block";
+      } else {
+        alert("Wrong password");
+      }
     }
-});
 
-// Fetch current bot status from server
-function fetchBotStatus() {
-    fetch("/change-status?dummy=1") // using existing endpoint to read current status
-        .then(() => {
-            // You can add a proper endpoint in server.js returning current status
-            fetch("/current-status")
-                .then(res => res.json())
-                .then(data => {
-                    botStatusSpan.textContent = data.status || "Online";
-                    botPrefixSpan.textContent = data.prefix || "!";
-                })
-                .catch(() => {
-                    botStatusSpan.textContent = "Online";
-                });
-        });
-}
+    function updateStatus() {
+      const status = document.getElementById("statusInput").value;
+      fetch("/updateStatus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById("msg").textContent = "✅ Status updated: " + data.newStatus;
+        } else {
+          document.getElementById("msg").textContent = "❌ Failed to update status.";
+        }
+      })
+      .catch(() => {
+        document.getElementById("msg").textContent = "❌ Request failed.";
+      });
+    }
 
-// Change bot status
-statusBtn.addEventListener("click", () => {
-    const newStatus = statusInput.value.trim();
-    if (!newStatus) return;
-
-    fetch(`/change-status?status=${encodeURIComponent(newStatus)}`)
-        .then(res => res.text())
-        .then(msg => {
-            botStatusSpan.textContent = newStatus;
-            statusMsg.textContent = "Status updated successfully!";
-            statusInput.value = "";
-        })
-        .catch(err => console.error(err));
-});
-
-// Secret page button
-secretBtn.addEventListener("click", () => {
-    window.location.href = "/secret.html";
-});
-</script>
+    function goSecret() {
+      window.location.href = "/secret.html";
+    }
+  </script>
 </body>
 </html>
