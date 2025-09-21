@@ -1,87 +1,92 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
-const server = require("./server.js"); // Import the server
+const server = require("./server.js"); // Our server.js
 
+const PREFIX_DEFAULT = server.botSettings.prefix || "!";
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
 
 // --- Logs helper ---
 function logEvent(msg) {
-  server.addLog(msg); // Send to server logs
-  const authorizedId = server.authorizedUserId;
-  if (authorizedId) {
-    const user = client.users.cache.get(authorizedId);
-    if (user) user.send(`📢 ${msg}`).catch(() => {}); // DM logs
+  server.addLog(msg);
+}
+
+// --- Bot ready ---
+client.once("ready", () => {
+  logEvent(`✅ Bot logged in as ${client.user.tag}`);
+
+  // Initial activity
+  updateBotStatus();
+
+  // Update activity periodically if changed from dashboard
+  setInterval(updateBotStatus, 10000);
+});
+
+// --- Update bot status function ---
+function updateBotStatus() {
+  if (client.user) {
+    const statusMsg = server.botSettings.statusMessage || "Watching everything";
+    // setActivity does not return a promise, so .catch() is removed
+    client.user.setActivity(statusMsg, { type: "WATCHING" });
+    logEvent(`Status set to: ${statusMsg}`);
   }
 }
 
-// --- Set bot status updater for server dashboard ---
+// --- Make server.js able to trigger status update ---
 server.setUpdateBotStatus(() => {
-  if (client.user) {
-    client.user.setActivity(server.botSettings.statusMessage, { type: "WATCHING" });
-    logEvent(`Bot status updated to: ${server.botSettings.statusMessage}`);
-  }
+  updateBotStatus();
 });
 
-// --- On bot ready ---
-client.once("ready", () => {
-  logEvent(`Bot logged in as ${client.user.tag}`);
-  if (client.user) {
-    client.user.setActivity(server.botSettings.statusMessage, { type: "WATCHING" });
-  }
-});
+// --- Commands ---
+const commands = {
+  ping: "Test if bot is alive",
+  status: "Show bot status",
+  cmds: "Show all commands",
+  logs: "View logs (DM only)",
+  dashboard: "Open the bot dashboard",
+};
 
-// --- Command handler ---
-client.on("messageCreate", (message) => {
-  if (message.author.bot) return;
+// --- Message listener ---
+client.on("messageCreate", async (message) => {
+  if (message.author.bot) return; // Ignore bot messages
 
-  const PREFIX = server.botSettings.prefix; // Use dynamic prefix
-  const isCommand = message.content.startsWith(PREFIX);
-  const isMentioned = message.mentions.has(client.user);
-  if (!isCommand && !isMentioned) return;
+  const prefix = server.botSettings.prefix || PREFIX_DEFAULT;
+  if (!message.content.startsWith(prefix)) return;
 
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const command = args.shift()?.toLowerCase();
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
+  const command = args.shift().toLowerCase();
 
-  if (isCommand) logEvent(`Command used by ${message.author.tag}: ${message.content}`);
-
-  // --- !cmds command ---
+  // --- Commands ---
+  if (command === "ping") return message.reply("🏓 Pong!");
+  if (command === "status") return message.reply(`Current status: ${server.botSettings.statusMessage}`);
   if (command === "cmds") {
-    const cmdsList = Object.entries(server.commands)
-      .map(([cmd, desc]) => `• ${cmd}: ${desc}`)
+    let cmdList = Object.entries(commands)
+      .map(([cmd, desc]) => `${prefix}${cmd} → ${desc}`)
       .join("\n");
-    message.author.send(`📜 Available commands:\n${cmdsList}`).catch(() => {});
-    return;
+    return message.author.send(`**Available Commands:**\n${cmdList}`);
   }
 
-  // --- status command ---
-  if (command === "status") {
-    message.reply(`Current bot status: ${server.botSettings.statusMessage}`);
-    return;
+  if (command === "logs") {
+    if (message.author.id !== server.authorizedUserId) return; // Only DM to authorized user
+    return message.author.send("**Bot Logs:**\n" + server.addLog.logs?.join("\n") || "No logs yet.");
   }
 
-  // --- Ping command ---
-  if (command === "ping") {
-    message.reply("🏓 Pong!");
-    return;
-  }
-
-  // --- Dashboard command ---
   if (command === "dashboard") {
-    message.reply("🌐 Access the dashboard at http://localhost:3000/dashboard");
-    return;
+    return message.author.send("🌐 Dashboard: http://localhost:3000/dashboard");
   }
 
-  // Add more commands here if needed...
+  // Unknown command
+  message.reply(`❌ Unknown command. Type ${prefix}cmds for a list.`);
 });
 
-// --- Start bot ---
+// --- Error logging ---
+client.on("error", (err) => logEvent(`❌ Discord client error: ${err.message}`));
+client.on("warn", (warn) => logEvent(`⚠️ Discord client warning: ${warn}`));
+process.on("unhandledRejection", (reason) => logEvent(`❌ Unhandled Rejection: ${reason}`));
+
+// --- Login bot ---
 client.login(process.env.DISCORD_TOKEN).catch((err) => {
-  console.error("Failed to login:", err);
-  logEvent(`❌ Bot login failed: ${err.message}`);
+  logEvent(`❌ Failed to login: ${err.message}`);
+  process.exit(1);
 });
