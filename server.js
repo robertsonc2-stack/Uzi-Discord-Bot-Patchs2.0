@@ -5,37 +5,37 @@ const path = require("path");
 let updateBotStatusCallback = null;
 let logs = [];
 
-// Allow index.js to register a bot status updater
+// Register a bot status updater from index.js
 function setUpdateBotStatus(callback) {
   updateBotStatusCallback = callback;
 }
 
-// Trigger the callback if it's set
+// Trigger the bot status update
 function triggerUpdateBotStatus() {
   if (updateBotStatusCallback) updateBotStatusCallback();
 }
 
-// Add logs from index.js
+// Add a log entry
 function addLog(message) {
   const timestamp = new Date().toLocaleString();
-  logs.push(`[${timestamp}] ${message`);
+  logs.push(`[${timestamp}] ${message}`); // ✅ fixed template literal
 }
 
-// Serve logs to secret.html
+// Return all logs
 function getLogs() {
   return logs;
 }
 
+// HTTP server
 const server = http.createServer((req, res) => {
   let filePath = "." + req.url;
-  if (filePath === "./") {
-    filePath = "./dashboard.html";
-  }
+  if (filePath === "./") filePath = "./dashboard.html";
 
-  // Handle dashboard password
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const password = url.searchParams.get("password");
+
+  // Password protection
   if (filePath.startsWith("./dashboard.html")) {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const password = url.searchParams.get("password");
     if (password !== "secret77") {
       res.writeHead(401, { "Content-Type": "text/plain" });
       res.end("Unauthorized: Invalid Dashboard Password");
@@ -43,10 +43,7 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // Handle secret page password
   if (filePath.startsWith("./secret.html")) {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const password = url.searchParams.get("password");
     if (password !== "owner77") {
       res.writeHead(401, { "Content-Type": "text/plain" });
       res.end("Unauthorized: Invalid Secret Page Password");
@@ -54,13 +51,14 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // API for logs
+  // Serve logs via API
   if (filePath.startsWith("./logs")) {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(getLogs()));
     return;
   }
 
+  // Serve static files
   const extname = String(path.extname(filePath)).toLowerCase();
   const mimeTypes = {
     ".html": "text/html",
@@ -102,11 +100,10 @@ server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
 
-// Export functions so index.js can use them
+// Export functions for index.js
 module.exports = {
   setUpdateBotStatus,
   triggerUpdateBotStatus,
   addLog,
   getLogs
 };
-
