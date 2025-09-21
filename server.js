@@ -1,128 +1,127 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const url = require("url");
+const querystring = require("querystring");
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// --- Bot settings & logs ---
-const botSettings = {
+// --- In-memory storage ---
+let botSettings = {
   prefix: "!",
-  statusMessage: "Watching everything",
+  statusMessage: "Online"
 };
 
 let logs = [];
-function addLog(msg) {
-  const timestamp = new Date().toISOString();
-  const logEntry = `[${timestamp}] ${msg}`;
-  logs.push(logEntry);
-  console.log(logEntry);
+let secretAccess = {}; // Track secret access per session (simple memory)
+
+// --- Helpers ---
+function addLog(message) {
+  logs.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+  console.log(message);
 }
 
-// --- Authorized user ---
-let authorizedDashboard = false;
-let authorizedSecret = false;
-
-// --- Update bot status callback ---
-let updateBotStatusCallback = () => {};
-function setUpdateBotStatus(cb) {
-  updateBotStatusCallback = cb;
-}
-
-// --- HTML helper ---
-function serveFile(filePath, res, contentType = "text/html") {
+function serveFile(res, filePath, contentType = "text/html") {
   fs.readFile(filePath, (err, data) => {
     if (err) {
       res.writeHead(500);
-      return res.end("Error loading page");
+      return res.end("Server error");
     }
     res.writeHead(200, { "Content-Type": contentType });
     res.end(data);
   });
 }
 
-// --- Server ---
+// --- HTTP Server ---
 const server = http.createServer((req, res) => {
-  if (req.method === "GET") {
-    if (req.url === "/" || req.url === "/dashboard") {
-      return serveFile(path.join(__dirname, "public", "dashboard.html"), res);
-    }
+  const parsedUrl = url.parse(req.url);
+  const pathname = parsedUrl.pathname;
 
-    if (req.url === "/secret") {
-      if (!authorizedSecret) {
-        res.writeHead(401);
-        return res.end("Unauthorized: enter the correct password on dashboard");
-      }
-      return serveFile(path.join(__dirname, "public", "secret.html"), res);
-    }
-
-    if (req.url === "/api/logs") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify(logs));
-    }
-
-    if (req.url === "/api/status") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify(botSettings));
-    }
-
-    res.writeHead(404);
-    return res.end("Not Found");
+  // Serve dashboard HTML
+  if (pathname === "/" || pathname === "/dashboard") {
+    return serveFile(res, path.join(__dirname, "public/dashboard.html"));
   }
 
-  if (req.method === "POST") {
+  // Serve secret page HTML
+  if (pathname === "/secret") {
+    return serveFile(res, path.join(__dirname, "public/secret.html"));
+  }
+
+  // Serve static files (CSS/JS)
+  if (pathname.startsWith("/public/")) {
+    const filePath = path.join(__dirname, pathname);
+    const ext = path.extname(filePath);
+    let contentType = "text/plain";
+    if (ext === ".css") contentType = "text/css";
+    if (ext === ".js") contentType = "application/javascript";
+    return serveFile(res, filePath, contentType);
+  }
+
+  // --- API Routes ---
+  if (pathname === "/api/status" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify(botSettings));
+  }
+
+  if (pathname === "/api/set-status" && req.method === "POST") {
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", () => {
-      // Dashboard password
-      if (req.url === "/api/dashboard-password") {
-        const data = new URLSearchParams(body);
-        if (data.get("password") === "key77") {
-          authorizedDashboard = true;
-          res.writeHead(200, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ success: true }));
-        }
-        res.writeHead(401);
-        return res.end(JSON.stringify({ success: false }));
-      }
-
-      // Secret password
-      if (req.url === "/api/secret-password") {
-        const data = new URLSearchParams(body);
-        if (data.get("password") === "coltonsr77") {
-          authorizedSecret = true;
-          res.writeHead(200, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ success: true }));
-        }
-        res.writeHead(401);
-        return res.end(JSON.stringify({ success: false }));
-      }
-
-      // Update status
-      if (req.url === "/api/set-status") {
+      try {
         const data = JSON.parse(body);
-        if (!data.statusMessage) return res.end("Missing status");
-        botSettings.statusMessage = data.statusMessage;
-        updateBotStatusCallback();
-        return res.end(JSON.stringify({ success: true }));
+        botSettings.statusMessage = data.statusMessage || botSettings.statusMessage;
+        addLog(`Bot status changed to: ${botSettings.statusMessage}`);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } catch {
+        res.writeHead(400);
+        res.end("Invalid JSON");
       }
     });
     return;
   }
 
+  // Logs API
+  if (pathname === "/api/logs" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify(logs));
+  }
+
+  // Secret password API
+  if (pathname === "/api/secret-password" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      const data = querystring.parse(body);
+      if (data.password === "coltonsr77") {
+        // Use simple session-based access
+        const sessionId = Date.now().toString();
+        secretAccess[sessionId] = true;
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true, sessionId }));
+      } else {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false }));
+      }
+    });
+    return;
+  }
+
+  // Catch-all
   res.writeHead(404);
   res.end("Not Found");
 });
 
-// --- Start server ---
+// --- Start Server ---
 server.listen(PORT, () => {
-  console.log(`🌐 Server running at http://localhost:${PORT}`);
-  addLog(`Server started on port ${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
+  addLog("Server started");
 });
 
-// --- Exports ---
+// Export for index.js
 module.exports = {
+  server,
   botSettings,
-  logs,
   addLog,
-  setUpdateBotStatus,
 };
+
