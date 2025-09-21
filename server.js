@@ -2,100 +2,75 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-let botSettings = {
-    prefix: "!",
-    statusMessage: "Online"
-};
-
-let logs = [];
-let updateBotStatusCallback = null;
-
-function setUpdateBotStatus(callback) {
-    updateBotStatusCallback = callback;
+let updateBotStatusFn = null;
+function setUpdateBotStatus(fn) {
+  updateBotStatusFn = fn;
 }
 
-function addLog(message) {
-    const timestamp = new Date().toLocaleString();
-    logs.push(`[${timestamp}] ${message}`);
-    if (logs.length > 50) logs.shift(); // keep only 50 logs
+// Store bot settings
+let botSettings = {
+  statusMessage: "Online",
+  prefix: "!"
+};
+
+// Logs
+let logs = [];
+
+// Serve files
+function serveFile(res, filePath, contentType) {
+  fs.readFile(path.join(__dirname, filePath), (err, data) => {
+    if (err) {
+      res.writeHead(404);
+      return res.end("File not found");
+    }
+    res.writeHead(200, { "Content-Type": contentType });
+    res.end(data);
+  });
 }
 
 const server = http.createServer((req, res) => {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const pathname = url.pathname;
-
-    // Serve dashboard.html
-    if (pathname === "/" || pathname === "/dashboard.html") {
-        fs.readFile(path.join(__dirname, "dashboard.html"), (err, data) => {
-            if (err) {
-                res.writeHead(404);
-                res.end("Dashboard not found");
-                return;
-            }
-            res.writeHead(200, { "Content-Type": "text/html" });
-            res.end(data);
-        });
-        return;
-    }
-
-    // Serve secret.html
-    if (pathname === "/secret.html") {
-        fs.readFile(path.join(__dirname, "secret.html"), (err, data) => {
-            if (err) {
-                res.writeHead(404);
-                res.end("Secret page not found");
-                return;
-            }
-            res.writeHead(200, { "Content-Type": "text/html" });
-            res.end(data);
-        });
-        return;
-    }
-
-    // Change bot status
-    if (pathname === "/change-status") {
-        const newStatus = url.searchParams.get("status");
-        if (newStatus) {
-            botSettings.statusMessage = newStatus;
-            if (updateBotStatusCallback) updateBotStatusCallback(newStatus);
-            addLog(`Bot status changed to: ${newStatus}`);
-            res.writeHead(200, { "Content-Type": "text/plain" });
-            res.end("Status updated");
+  if (req.url === "/dashboard.html") {
+    serveFile(res, "dashboard.html", "text/html");
+  }
+  else if (req.url === "/secret.html") {
+    serveFile(res, "secret.html", "text/html");
+  }
+  // API: update status
+  else if (req.url === "/updateStatus" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => (body += chunk));
+    req.on("end", () => {
+      try {
+        const { status } = JSON.parse(body);
+        if (status) {
+          botSettings.statusMessage = status;
+          logs.push(`[STATUS] Changed to "${status}"`);
+          if (updateBotStatusFn) updateBotStatusFn();
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, newStatus: status }));
         } else {
-            res.writeHead(200, { "Content-Type": "text/plain" });
-            res.end("No status provided");
+          res.writeHead(400);
+          res.end("Missing status");
         }
-        return;
-    }
-
-    // ✅ New endpoint: return current bot status + prefix
-    if (pathname === "/current-status") {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({
-            prefix: botSettings.prefix,
-            status: botSettings.statusMessage
-        }));
-        return;
-    }
-
-    // Logs page
-    if (pathname === "/logs") {
-        res.writeHead(200, { "Content-Type": "text/plain" });
-        res.end(logs.join("\n"));
-        return;
-    }
-
-    // Fallback for missing files
+      } catch {
+        res.writeHead(500);
+        res.end("Error parsing request");
+      }
+    });
+  }
+  // API: get logs
+  else if (req.url === "/logs") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(logs));
+  }
+  else {
     res.writeHead(404);
-    res.end("404 Not Found");
+    res.end("Not found");
+  }
 });
 
-server.listen(3000, () => {
-    console.log("Server running at http://localhost:3000");
-});
+server.listen(3000, () =>
+  console.log("🌐 Dashboard running at http://localhost:3000/dashboard.html")
+);
 
-module.exports = {
-    setUpdateBotStatus,
-    addLog,
-    botSettings
-};
+module.exports = { setUpdateBotStatus, botSettings };
