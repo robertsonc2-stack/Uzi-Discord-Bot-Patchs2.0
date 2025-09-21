@@ -4,74 +4,102 @@
   <meta charset="UTF-8">
   <title>Bot Dashboard</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #1f1f1f; color: #f0f0f0; padding: 20px; }
-    h1 { color: #00bfff; }
-    input, button { padding: 8px; margin: 5px 0; border-radius: 5px; border: none; }
-    input { width: 250px; }
-    button { background: #00bfff; color: white; cursor: pointer; }
-    button:hover { background: #009acd; }
-    .hidden { display: none; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #1e1e2f;
+      color: #fff;
+      text-align: center;
+      padding: 40px;
+    }
+    h1 {
+      color: #4cafef;
+    }
+    form {
+      margin: 20px auto;
+      background: #2c2c3c;
+      padding: 20px;
+      border-radius: 8px;
+      width: 300px;
+      text-align: left;
+    }
+    label {
+      display: block;
+      margin: 10px 0 5px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      border-radius: 4px;
+      border: none;
+      margin-bottom: 15px;
+    }
+    button {
+      padding: 10px 15px;
+      background: #4cafef;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #379ad6;
+    }
+    #message {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    .nav {
+      margin-top: 25px;
+    }
   </style>
 </head>
 <body>
+  <h1>Bot Dashboard</h1>
+  <form id="settingsForm">
+    <label for="statusMessage">Bot Status:</label>
+    <input type="text" id="statusMessage" name="statusMessage" required>
 
-<h1>Bot Dashboard</h1>
+    <label for="prefix">Bot Prefix:</label>
+    <input type="text" id="prefix" name="prefix" required>
 
-<div id="login-section">
-  <p>Enter Dashboard Password:</p>
-  <input type="password" id="dash-password" placeholder="Password">
-  <button onclick="checkPassword()">Login</button>
-  <p id="login-msg" style="color:red;"></p>
-</div>
+    <button type="submit">Save Settings</button>
+  </form>
 
-<div id="dashboard" class="hidden">
-  <p><strong>Bot Prefix:</strong> <span id="bot-prefix"></span></p>
-  <p>
-    <label>Status Message:</label><br>
-    <input type="text" id="status-msg">
-    <button onclick="changeStatus()">Change Status</button>
-  </p>
-  <p>
-    <button onclick="goToSecret()">Access Secret Logs</button>
-  </p>
-</div>
+  <p id="message"></p>
 
-<script>
-const DASH_PASSWORD = "secret77;
+  <div class="nav">
+    <button onclick="window.location.href='/secret'">Go to Secret Page</button>
+  </div>
 
-function checkPassword() {
-  const input = document.getElementById("dash-password").value;
-  if(input === DASH_PASSWORD) {
-    document.getElementById("login-section").classList.add("hidden");
-    document.getElementById("dashboard").classList.remove("hidden");
-    loadBotSettings();
-  } else {
-    document.getElementById("login-msg").textContent = "Incorrect password!";
-  }
-}
+  <script>
+    // Load current settings
+    fetch('/settings')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('statusMessage').value = data.statusMessage;
+        document.getElementById('prefix').value = data.prefix;
+      });
 
-async function loadBotSettings() {
-  const res = await fetch("/api/status");
-  const data = await res.json();
-  document.getElementById("bot-prefix").textContent = data.prefix;
-  document.getElementById("status-msg").value = data.statusMessage;
-}
+    // Handle form submit
+    document.getElementById('settingsForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const statusMessage = document.getElementById('statusMessage').value;
+      const prefix = document.getElementById('prefix').value;
 
-async function changeStatus() {
-  const newStatus = document.getElementById("status-msg").value;
-  const res = await fetch("/api/set-status", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ statusMessage: newStatus })
-  });
-  if(res.ok) alert("Status updated!");
-}
-
-function goToSecret() {
-  window.location.href = "/secret";
-}
-</script>
-
+      fetch('/update-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statusMessage, prefix })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('message').textContent = "✅ Settings updated!";
+      })
+      .catch(() => {
+        document.getElementById('message').textContent = "❌ Error updating settings.";
+      });
+    });
+  </script>
 </body>
 </html>
-
