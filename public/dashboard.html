@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bot Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #1e1e1e; color: #f0f0f0; margin: 0; padding: 20px; }
+    h1 { color: #00bfff; }
+    .section { background: #2e2e2e; padding: 15px; margin-bottom: 15px; border-radius: 8px; }
+    input, button { padding: 8px; margin: 5px 0; border-radius: 5px; border: none; }
+    button { background: #00bfff; color: white; cursor: pointer; }
+    button:hover { background: #009acd; }
+  </style>
+</head>
+<body>
+  <h1>Bot Dashboard</h1>
+
+  <div class="section">
+    <h2>Bot Settings</h2>
+    <p><strong>Prefix:</strong> <span id="bot-prefix">!</span></p>
+    <p>
+      <label>Status Message:</label><br>
+      <input type="text" id="status-input" placeholder="Enter new status">
+      <button onclick="changeStatus()">Change Status</button>
+    </p>
+    <button onclick="goSecret()">Go to Secret Page</button>
+  </div>
+
+  <div class="section">
+    <h2>Logs</h2>
+    <pre id="logs" style="max-height:200px; overflow-y:auto;"></pre>
+    <button onclick="fetchLogs()">Refresh Logs</button>
+  </div>
+
+<script>
+  const prefixEl = document.getElementById("bot-prefix");
+  const statusInput = document.getElementById("status-input");
+  const logsEl = document.getElementById("logs");
+
+  async function fetchStatus() {
+    const res = await fetch("/api/status");
+    const data = await res.json();
+    prefixEl.textContent = data.prefix;
+    statusInput.value = data.statusMessage;
+  }
+
+  async function changeStatus() {
+    const newStatus = statusInput.value;
+    if (!newStatus) return alert("Enter a status message");
+    await fetch("/api/set-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ statusMessage: newStatus })
+    });
+    alert("Status updated!");
+  }
+
+  async function fetchLogs() {
+    const res = await fetch("/api/logs");
+    const data = await res.json();
+    logsEl.textContent = data.join("\n");
+  }
+
+  function goSecret() {
+    window.location.href = "/secret";
+  }
+
+  // Initial load
+  fetchStatus();
+  fetchLogs();
+</script>
+</body>
+</html>
