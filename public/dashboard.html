@@ -1,104 +1,51 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bot Dashboard</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #1e1e2f;
-      color: #fff;
-      text-align: center;
-      padding: 40px;
-    }
-    h1 {
-      color: #4cafef;
-    }
-    form {
-      margin: 20px auto;
-      background: #2c2c3c;
-      padding: 20px;
-      border-radius: 8px;
-      width: 300px;
-      text-align: left;
-    }
-    label {
-      display: block;
-      margin: 10px 0 5px;
-    }
-    input {
-      width: 100%;
-      padding: 8px;
-      border-radius: 4px;
-      border: none;
-      margin-bottom: 15px;
-    }
-    button {
-      padding: 10px 15px;
-      background: #4cafef;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-    button:hover {
-      background: #379ad6;
-    }
-    #message {
-      margin-top: 15px;
-      font-weight: bold;
-    }
-    .nav {
-      margin-top: 25px;
-    }
+    body { font-family: Arial, sans-serif; background: #1e1e1e; color: #fff; padding: 20px; }
+    h1 { color: #f39c12; }
+    label, input, button { display: block; margin-top: 10px; }
+    input { padding: 5px; width: 300px; }
+    button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
   </style>
 </head>
 <body>
   <h1>Bot Dashboard</h1>
-  <form id="settingsForm">
-    <label for="statusMessage">Bot Status:</label>
-    <input type="text" id="statusMessage" name="statusMessage" required>
+  
+  <div>
+    <label for="status">Bot Status Message:</label>
+    <input type="text" id="status" placeholder="Online">
+    <button id="changeStatus">Change Status</button>
+  </div>
 
-    <label for="prefix">Bot Prefix:</label>
-    <input type="text" id="prefix" name="prefix" required>
-
-    <button type="submit">Save Settings</button>
-  </form>
-
-  <p id="message"></p>
-
-  <div class="nav">
-    <button onclick="window.location.href='/secret'">Go to Secret Page</button>
+  <div>
+    <label>Bot Prefix:</label>
+    <span id="prefix">!</span>
   </div>
 
   <script>
-    // Load current settings
-    fetch('/settings')
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('statusMessage').value = data.statusMessage;
-        document.getElementById('prefix').value = data.prefix;
-      });
+    const statusInput = document.getElementById("status");
+    const changeButton = document.getElementById("changeStatus");
+    
+    // Change bot status
+    changeButton.addEventListener("click", async () => {
+      const newStatus = statusInput.value.trim();
+      if (!newStatus) return alert("Please enter a status message.");
 
-    // Handle form submit
-    document.getElementById('settingsForm').addEventListener('submit', function (e) {
-      e.preventDefault();
-      const statusMessage = document.getElementById('statusMessage').value;
-      const prefix = document.getElementById('prefix').value;
+      const password = new URLSearchParams(window.location.search).get("password");
+      if (!password) return alert("No dashboard password provided!");
 
-      fetch('/update-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statusMessage, prefix })
-      })
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('message').textContent = "✅ Settings updated!";
-      })
-      .catch(() => {
-        document.getElementById('message').textContent = "❌ Error updating settings.";
-      });
+      try {
+        const response = await fetch(`/change-status?status=${encodeURIComponent(newStatus)}&password=${password}`);
+        if (!response.ok) throw new Error("Failed to change status");
+        alert("Status updated successfully!");
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
     });
   </script>
 </body>
