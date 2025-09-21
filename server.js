@@ -2,89 +2,89 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const PORT = 3000;
+let updateBotStatusCallback = null;
 
-// Helper: serve static files
-function serveFile(res, filePath, contentType) {
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      res.writeHead(404, { "Content-Type": "text/plain" });
-      res.end("404 Not Found");
-    } else {
-      res.writeHead(200, { "Content-Type": contentType });
-      res.end(data);
-    }
-  });
+// Allow index.js to register a bot status updater
+function setUpdateBotStatus(callback) {
+  updateBotStatusCallback = callback;
+}
+
+// Trigger the callback if it's set
+function triggerUpdateBotStatus() {
+  if (updateBotStatusCallback) updateBotStatusCallback();
 }
 
 const server = http.createServer((req, res) => {
-  const urlObj = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = urlObj.pathname;
+  let filePath = "." + req.url;
+  if (filePath === "./") {
+    filePath = "./dashboard.html";
+  }
 
-  // --- Dashboard (protected with secret77) ---
-  if (pathname === "/dashboard") {
-    const password = urlObj.searchParams.get("password");
-    if (password === "secret77") {
-      serveFile(res, path.join(__dirname, "public", "dashboard.html"), "text/html");
-    } else {
+  // Handle dashboard password
+  if (filePath === "./dashboard.html") {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const password = url.searchParams.get("password");
+    if (password !== "secret77") {
       res.writeHead(401, { "Content-Type": "text/plain" });
-      res.end("Unauthorized: Invalid password for dashboard");
+      res.end("Unauthorized: Invalid Dashboard Password");
+      return;
     }
-    return;
   }
 
-  // --- Secret logs (protected with owner77) ---
-  if (pathname === "/secret") {
-    const password = urlObj.searchParams.get("password");
-    if (password === "owner77") {
-      serveFile(res, path.join(__dirname, "public", "secret.html"), "text/html");
-    } else {
+  // Handle secret page password
+  if (filePath === "./secret.html") {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const password = url.searchParams.get("password");
+    if (password !== "owner77") {
       res.writeHead(401, { "Content-Type": "text/plain" });
-      res.end("Unauthorized: Invalid password for secret page");
+      res.end("Unauthorized: Invalid Secret Page Password");
+      return;
     }
-    return;
   }
 
-  // --- Serve static files from /public ---
-  let filePath = path.join(__dirname, "public", pathname === "/" ? "index.html" : pathname);
-  let ext = path.extname(filePath).toLowerCase();
-  let contentType = "text/html";
+  const extname = String(path.extname(filePath)).toLowerCase();
+  const mimeTypes = {
+    ".html": "text/html",
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".jpg": "image/jpg",
+    ".gif": "image/gif",
+    ".wav": "audio/wav",
+    ".mp4": "video/mp4",
+    ".woff": "application/font-woff",
+    ".ttf": "application/font-ttf",
+    ".eot": "application/vnd.ms-fontobject",
+    ".otf": "application/font-otf",
+    ".svg": "application/image/svg+xml",
+  };
 
-  switch (ext) {
-    case ".css":
-      contentType = "text/css";
-      break;
-    case ".js":
-      contentType = "application/javascript";
-      break;
-    case ".json":
-      contentType = "application/json";
-      break;
-    case ".png":
-      contentType = "image/png";
-      break;
-    case ".jpg":
-    case ".jpeg":
-      contentType = "image/jpeg";
-      break;
-    case ".gif":
-      contentType = "image/gif";
-      break;
-  }
+  const contentType = mimeTypes[extname] || "application/octet-stream";
 
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      res.writeHead(404, { "Content-Type": "text/plain" });
-      res.end("404 Not Found");
+  fs.readFile(filePath, (error, content) => {
+    if (error) {
+      if (error.code === "ENOENT") {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        res.end("404 Not Found");
+      } else {
+        res.writeHead(500);
+        res.end("Server Error: " + error.code);
+      }
     } else {
       res.writeHead(200, { "Content-Type": contentType });
-      res.end(content);
+      res.end(content, "utf-8");
     }
   });
 });
 
+const PORT = 3000;
 server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}/`);
-  console.log(`Dashboard: http://localhost:${PORT}/dashboard?password=secret77`);
-  console.log(`Secret Logs: http://localhost:${PORT}/secret?password=owner77`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
+
+// Export functions so index.js can use them
+module.exports = {
+  setUpdateBotStatus,
+  triggerUpdateBotStatus
+};
