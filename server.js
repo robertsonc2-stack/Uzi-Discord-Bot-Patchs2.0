@@ -25,6 +25,9 @@ let botSettings = {
   prefix: "!",
 };
 
+// --- Secret page password ---
+let dashboardPassword = "mypassword123"; // change this to your password
+
 // --- Add log ---
 function addLog(entry) {
   const time = new Date().toLocaleTimeString();
@@ -156,6 +159,19 @@ const server = http.createServer((req, res) => {
             }
           </script>
         </section>
+
+        <section>
+          <h2>Secret Page Access</h2>
+          <input type="password" id="secretPw" placeholder="Enter password"/>
+          <button onclick="goToSecret()">Go to Secret Page</button>
+
+          <script>
+            function goToSecret() {
+              const pw = document.getElementById('secretPw').value;
+              window.location.href = '/secret-page?pw=' + encodeURIComponent(pw);
+            }
+          </script>
+        </section>
       `}
       </main>
     </body>
@@ -209,6 +225,38 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // --- Secret page ---
+  if (parsedUrl.pathname === "/secret-page") {
+    const password = parsedUrl.query.pw;
+    if (!authorizedUserId || password !== dashboardPassword) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("❌ Unauthorized: Wrong password or not logged in.");
+      return;
+    }
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Secret Page</title>
+      <style>
+        body { font-family: Arial, sans-serif; background: #1e1e2f; color: #fff; text-align: center; padding: 50px; }
+        button { padding: 10px 15px; margin-top: 20px; background: #3d3d5c; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+      </style>
+    </head>
+    <body>
+      <h1>🔒 Secret Page</h1>
+      <p>Only accessible with the correct password!</p>
+      <button onclick="window.location.href='/dashboard'">Back to Dashboard</button>
+    </body>
+    </html>
+    `;
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
+
   // --- Default response ---
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Bot server running. Visit /dashboard for dashboard.");
@@ -226,5 +274,6 @@ module.exports = {
   commands,
   botSettings,
   setUpdateBotStatus,
-  get authorizedUserId() { return authorizedUserId; }
+  get authorizedUserId() { return authorizedUserId; },
 };
+
