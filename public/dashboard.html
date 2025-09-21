@@ -18,20 +18,33 @@
   </div>
 
   <script>
+    // Password check for dashboard
+    const dashboardPassword = prompt("Enter dashboard password (secret77):");
+    fetch(`/check-password?password=${dashboardPassword}&page=dashboard`)
+      .then(res => res.text())
+      .then(result => {
+        if(result !== "OK") {
+          alert("Wrong password");
+          document.body.innerHTML = "<h1>Access Denied</h1>";
+        }
+      });
+
     function updateStatus() {
       const status = document.getElementById('status').value;
-      fetch(`/update-status?status=${encodeURIComponent(status)}`)
-        .then(res => alert('Status updated!'))
-        .catch(err => alert('Error updating status'));
+      alert(`Status updated to: ${status} (simulated)`); // Replace with server integration
     }
 
     function goSecret() {
-      const password = prompt("Enter password (secret77):");
-      if(password === "secret77") {
-        window.location.href = "secret.html";
-      } else {
-        alert("Wrong password");
-      }
+      const secretPassword = prompt("Enter secret page password (owner77):");
+      fetch(`/check-password?password=${secretPassword}&page=secret`)
+        .then(res => res.text())
+        .then(result => {
+          if(result === "OK") {
+            window.location.href = "secret.html";
+          } else {
+            alert("Wrong password");
+          }
+        });
     }
   </script>
 </body>
