@@ -2,7 +2,6 @@ require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const server = require("./server.js"); // Import the server
 
-const PREFIX = "!";
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -32,7 +31,6 @@ server.setUpdateBotStatus(() => {
 // --- On bot ready ---
 client.once("ready", () => {
   logEvent(`Bot logged in as ${client.user.tag}`);
-  // Set initial status
   if (client.user) {
     client.user.setActivity(server.botSettings.statusMessage, { type: "WATCHING" });
   }
@@ -42,6 +40,7 @@ client.once("ready", () => {
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
 
+  const PREFIX = server.botSettings.prefix; // Use dynamic prefix
   const isCommand = message.content.startsWith(PREFIX);
   const isMentioned = message.mentions.has(client.user);
   if (!isCommand && !isMentioned) return;
@@ -60,7 +59,7 @@ client.on("messageCreate", (message) => {
     return;
   }
 
-  // --- !status command ---
+  // --- status command ---
   if (command === "status") {
     message.reply(`Current bot status: ${server.botSettings.statusMessage}`);
     return;
@@ -78,7 +77,7 @@ client.on("messageCreate", (message) => {
     return;
   }
 
-  // Other commands can go here...
+  // Add more commands here if needed...
 });
 
 // --- Start bot ---
