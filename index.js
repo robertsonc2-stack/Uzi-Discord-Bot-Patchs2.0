@@ -88,5 +88,5 @@ client.once("ready", () => {
 });
 
 // Login with your bot token
-client.login("YOUR_BOT_TOKEN");
+client.login("MTQxMzg1MjQ5NTY4NzcxMjgxMg.G6XUyV.tQoP56YUEuBj_PiRZB9m9LyMXaE3orU1S8xY2o");
 
