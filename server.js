@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 let updateBotStatusCallback = null;
+let logs = [];
 
 // Allow index.js to register a bot status updater
 function setUpdateBotStatus(callback) {
@@ -14,6 +15,17 @@ function triggerUpdateBotStatus() {
   if (updateBotStatusCallback) updateBotStatusCallback();
 }
 
+// Add logs from index.js
+function addLog(message) {
+  const timestamp = new Date().toLocaleString();
+  logs.push(`[${timestamp}] ${message`);
+}
+
+// Serve logs to secret.html
+function getLogs() {
+  return logs;
+}
+
 const server = http.createServer((req, res) => {
   let filePath = "." + req.url;
   if (filePath === "./") {
@@ -21,7 +33,7 @@ const server = http.createServer((req, res) => {
   }
 
   // Handle dashboard password
-  if (filePath === "./dashboard.html") {
+  if (filePath.startsWith("./dashboard.html")) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const password = url.searchParams.get("password");
     if (password !== "secret77") {
@@ -32,7 +44,7 @@ const server = http.createServer((req, res) => {
   }
 
   // Handle secret page password
-  if (filePath === "./secret.html") {
+  if (filePath.startsWith("./secret.html")) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const password = url.searchParams.get("password");
     if (password !== "owner77") {
@@ -40,6 +52,13 @@ const server = http.createServer((req, res) => {
       res.end("Unauthorized: Invalid Secret Page Password");
       return;
     }
+  }
+
+  // API for logs
+  if (filePath.startsWith("./logs")) {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(getLogs()));
+    return;
   }
 
   const extname = String(path.extname(filePath)).toLowerCase();
@@ -86,5 +105,8 @@ server.listen(PORT, () => {
 // Export functions so index.js can use them
 module.exports = {
   setUpdateBotStatus,
-  triggerUpdateBotStatus
+  triggerUpdateBotStatus,
+  addLog,
+  getLogs
 };
+
