@@ -5,53 +5,48 @@ const path = require("path");
 let updateBotStatusCallback = null;
 let logs = [];
 
-// Register a bot status updater from index.js
+// Register status updater
 function setUpdateBotStatus(callback) {
   updateBotStatusCallback = callback;
 }
 
-// Trigger the bot status update
 function triggerUpdateBotStatus(newStatus) {
   if (updateBotStatusCallback) updateBotStatusCallback(newStatus);
 }
 
-// Add a log entry
 function addLog(message) {
   const timestamp = new Date().toLocaleString();
   logs.push(`[${timestamp}] ${message}`);
 }
 
-// Return all logs
 function getLogs() {
   return logs;
 }
 
-// HTTP server
+// Serve files from the "public" folder
+const PUBLIC_DIR = path.join(__dirname);
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  let filePath = "." + url.pathname;
+  let filePath = path.join(PUBLIC_DIR, url.pathname);
 
-  if (filePath === "./") filePath = "./dashboard.html";
-
-  // Change bot status endpoint
-  if (url.pathname === "/change-status") {
+  if (url.pathname === "/" || url.pathname === "/dashboard.html") {
+    filePath = path.join(PUBLIC_DIR, "dashboard.html");
+  } else if (url.pathname === "/secret.html") {
+    filePath = path.join(PUBLIC_DIR, "secret.html");
+  } else if (url.pathname === "/change-status") {
     const newStatus = url.searchParams.get("status") || "Online";
     triggerUpdateBotStatus(newStatus);
     addLog(`Bot status changed to: ${newStatus}`);
     res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("Status updated successfully");
-    return;
-  }
-
-  // Logs API endpoint
-  if (url.pathname === "/logs") {
+    return res.end("Status updated successfully");
+  } else if (url.pathname === "/logs") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(getLogs()));
-    return;
+    return res.end(JSON.stringify(getLogs()));
   }
 
-  // Serve static files
-  const extname = String(path.extname(filePath)).toLowerCase();
+  // Determine content type
+  const extname = path.extname(filePath).toLowerCase();
   const mimeTypes = {
     ".html": "text/html",
     ".js": "text/javascript",
@@ -65,17 +60,12 @@ const server = http.createServer((req, res) => {
 
   fs.readFile(filePath, (error, content) => {
     if (error) {
-      if (error.code === "ENOENT") {
-        res.writeHead(404, { "Content-Type": "text/plain" });
-        res.end("404 Not Found");
-      } else {
-        res.writeHead(500);
-        res.end("Server Error: " + error.code);
-      }
-    } else {
-      res.writeHead(200, { "Content-Type": contentType });
-      res.end(content, "utf-8");
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      res.end("404 Not Found");
+      return;
     }
+    res.writeHead(200, { "Content-Type": contentType });
+    res.end(content, "utf-8");
   });
 });
 
@@ -84,7 +74,6 @@ server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
 
-// Export functions for index.js
 module.exports = {
   setUpdateBotStatus,
   triggerUpdateBotStatus,
