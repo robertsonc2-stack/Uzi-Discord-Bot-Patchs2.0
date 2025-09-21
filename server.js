@@ -1,87 +1,230 @@
-require("dotenv").config();
-const { Client, GatewayIntentBits } = require("discord.js");
-const server = require("./server.js"); // Import the server
+// server.js
+const http = require("http");
+const url = require("url");
+const PORT = 3000;
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-});
+// --- Commands ---
+const commands = {
+  ping: "Test if bot is alive",
+  status: "Show bot status",
+  cmds: "Show all commands",
+  logs: "View logs (DM only)",
+  dashboard: "Open the bot dashboard",
+};
 
-// --- Logs helper ---
-function logEvent(msg) {
-  server.addLog(msg); // Send to server logs
-  const authorizedId = server.authorizedUserId;
-  if (authorizedId) {
-    const user = client.users.cache.get(authorizedId);
-    if (user) user.send(`📢 ${msg}`).catch(() => {}); // DM logs
-  }
+// --- Logs storage ---
+let logs = [];
+let logClients = [];
+
+// --- Authorized user ---
+let authorizedUserId = null;
+
+// --- Bot settings ---
+let botSettings = {
+  statusMessage: "Watching everything",
+  prefix: "!",
+};
+
+// --- Add log ---
+function addLog(entry) {
+  const time = new Date().toLocaleTimeString();
+  const msg = `[${time}] ${entry}`;
+  logs.push(msg);
+  if (logs.length > 100) logs.shift();
+
+  logClients.forEach((res) => res.write(`data: ${JSON.stringify(msg)}\n\n`));
+  console.log(msg);
 }
 
-// --- Set bot status updater for server dashboard ---
-server.setUpdateBotStatus(() => {
-  if (client.user) {
-    client.user.setActivity(server.botSettings.statusMessage, { type: "WATCHING" });
-    logEvent(`Bot status updated to: ${server.botSettings.statusMessage}`);
-  }
-});
+// --- Placeholder for index.js status updater ---
+let updateBotStatusFunction = null;
+function setUpdateBotStatus(fn) {
+  updateBotStatusFunction = fn;
+}
 
-// --- On bot ready ---
-client.once("ready", () => {
-  logEvent(`Bot logged in as ${client.user.tag}`);
-  if (client.user) {
-    client.user.setActivity(server.botSettings.statusMessage, { type: "WATCHING" });
-  }
-});
+// --- Create server ---
+const server = http.createServer((req, res) => {
+  const parsedUrl = url.parse(req.url, true);
 
-// --- Command handler ---
-client.on("messageCreate", (message) => {
-  if (message.author.bot) return;
-
-  const PREFIX = server.botSettings.prefix; // Use dynamic prefix
-  const isCommand = message.content.startsWith(PREFIX);
-  const isMentioned = message.mentions.has(client.user);
-  if (!isCommand && !isMentioned) return;
-
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const command = args.shift()?.toLowerCase();
-
-  if (isCommand) logEvent(`Command used by ${message.author.tag}: ${message.content}`);
-
-  // --- !cmds command ---
-  if (command === "cmds") {
-    const cmdsList = Object.entries(server.commands)
-      .map(([cmd, desc]) => `• ${cmd}: ${desc}`)
-      .join("\n");
-    message.author.send(`📜 Available commands:\n${cmdsList}`).catch(() => {});
+  // --- Logs SSE ---
+  if (parsedUrl.pathname === "/logs/stream") {
+    if (!authorizedUserId) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Unauthorized");
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    res.write(`data: ${JSON.stringify({ history: logs })}\n\n`);
+    logClients.push(res);
+    req.on("close", () => {
+      logClients = logClients.filter((c) => c !== res);
+    });
     return;
   }
 
-  // --- status command ---
-  if (command === "status") {
-    message.reply(`Current bot status: ${server.botSettings.statusMessage}`);
+  // --- Dashboard page ---
+  if (parsedUrl.pathname === "/dashboard") {
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Bot Dashboard</title>
+      <style>
+        body { font-family: Arial, sans-serif; background: #1e1e2f; color: #fff; margin: 0; padding: 0; }
+        header { background: #2c2c44; padding: 20px; text-align: center; }
+        h1 { margin: 0; }
+        main { padding: 20px; display: flex; gap: 20px; flex-wrap: wrap; }
+        section { background: #2c2c44; padding: 15px; border-radius: 10px; flex: 1; min-width: 300px; }
+        button { padding: 10px 15px; margin-top: 10px; background: #3d3d5c; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+        input { padding: 8px; width: 80%; border-radius: 5px; border: none; margin-top: 5px; }
+        #logBox { height: 300px; overflow-y: auto; background: #1a1a2f; padding: 10px; border-radius: 5px; white-space: pre-wrap; }
+      </style>
+    </head>
+    <body>
+      <header>
+        <h1>Bot Dashboard</h1>
+        <p>Bot Prefix: <b>${botSettings.prefix}</b></p>
+      </header>
+      <main>
+      ${!authorizedUserId ? `
+        <section>
+          <h2>Login</h2>
+          <p>Enter your Discord User ID to access the dashboard:</p>
+          <input type="text" id="userId" placeholder="Your Discord ID"/>
+          <button onclick="submitId()">Submit</button>
+          <script>
+            function submitId() {
+              const id = document.getElementById('userId').value;
+              fetch('/authorize?id=' + id)
+                .then(res => res.text())
+                .then(alert)
+                .then(() => location.reload());
+            }
+          </script>
+        </section>
+      ` : `
+        <section>
+          <h2>Bot Settings</h2>
+          <label>Status Message:</label><br/>
+          <input type="text" id="statusMsg" value="${botSettings.statusMessage}" />
+          <button onclick="updateStatus()">Change Status</button>
+          <p id="statusUpdateMsg"></p>
+          <br/><br/>
+          <label>Bot Prefix:</label><br/>
+          <input type="text" id="botPrefix" value="${botSettings.prefix}" maxlength="3"/>
+          <button onclick="updatePrefix()">Change Prefix</button>
+          <p id="prefixUpdateMsg"></p>
+
+          <script>
+            function updateStatus() {
+              const val = document.getElementById('statusMsg').value;
+              fetch('/update-status?msg=' + encodeURIComponent(val))
+                .then(res => res.text())
+                .then(msg => { document.getElementById('statusUpdateMsg').textContent = msg; });
+            }
+
+            function updatePrefix() {
+              const val = document.getElementById('botPrefix').value;
+              fetch('/update-prefix?prefix=' + encodeURIComponent(val))
+                .then(res => res.text())
+                .then(msg => { document.getElementById('prefixUpdateMsg').textContent = msg; });
+            }
+          </script>
+        </section>
+
+        <section>
+          <h2>Live Logs</h2>
+          <div id="logBox"></div>
+          <script>
+            const logBox = document.getElementById("logBox");
+            const evt = new EventSource("/logs/stream");
+            evt.onmessage = e => {
+              const data = JSON.parse(e.data);
+              if(data.history) data.history.forEach(l => appendLog(l));
+              else appendLog(data);
+            };
+            function appendLog(msg){
+              const p=document.createElement("div");
+              p.textContent=msg;
+              logBox.appendChild(p);
+              logBox.scrollTop=logBox.scrollHeight;
+            }
+          </script>
+        </section>
+      `}
+      </main>
+    </body>
+    </html>
+    `;
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
     return;
   }
 
-  // --- Ping command ---
-  if (command === "ping") {
-    message.reply("🏓 Pong!");
+  // --- Authorization endpoint ---
+  if (parsedUrl.pathname === "/authorize") {
+    const id = parsedUrl.query.id;
+    if (id) {
+      authorizedUserId = id;
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("✅ Authorized! Reload the dashboard.");
+    } else {
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("❌ Missing ID");
+    }
     return;
   }
 
-  // --- Dashboard command ---
-  if (command === "dashboard") {
-    message.reply("🌐 Access the dashboard at http://localhost:3000/dashboard");
+  // --- Update status ---
+  if (parsedUrl.pathname === "/update-status") {
+    if (!authorizedUserId) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Unauthorized");
+      return;
+    }
+    const msg = parsedUrl.query.msg || "";
+    botSettings.statusMessage = msg;
+    if (updateBotStatusFunction) updateBotStatusFunction();
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(`✅ Status updated to: ${msg}`);
     return;
   }
 
-  // Add more commands here if needed...
+  // --- Update prefix ---
+  if (parsedUrl.pathname === "/update-prefix") {
+    if (!authorizedUserId) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Unauthorized");
+      return;
+    }
+    const prefix = parsedUrl.query.prefix || "!";
+    botSettings.prefix = prefix;
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(`✅ Prefix updated to: ${prefix}`);
+    return;
+  }
+
+  // --- Default response ---
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Bot server running. Visit /dashboard for dashboard.");
 });
 
-// --- Start bot ---
-client.login(process.env.DISCORD_TOKEN).catch((err) => {
-  console.error("Failed to login:", err);
-  logEvent(`❌ Bot login failed: ${err.message}`);
+// --- Start server ---
+server.listen(PORT, () => {
+  console.log(`🌐 Server running at http://localhost:${PORT}`);
+  addLog(`Server started on port ${PORT}`);
 });
+
+// --- Exports ---
+module.exports = {
+  addLog,
+  commands,
+  botSettings,
+  setUpdateBotStatus,
+  get authorizedUserId() { return authorizedUserId; }
+};
