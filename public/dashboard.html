@@ -11,6 +11,7 @@
     button { background: #00bfff; color: white; cursor: pointer; }
     button:hover { background: #009acd; }
     .hidden { display: none; }
+    pre { max-height: 200px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -38,13 +39,14 @@
 
     <div class="section">
       <h2>Logs</h2>
-      <pre id="logs" style="max-height:200px; overflow-y:auto;"></pre>
+      <pre id="logs"></pre>
       <button onclick="fetchLogs()">Refresh Logs</button>
     </div>
   </div>
 
 <script>
 const dashboardPassword = "key77";
+let secretAuthorized = false; // remembers if password entered once
 const passwordSection = document.getElementById("password-section");
 const dashboardContent = document.getElementById("dashboard-content");
 const prefixEl = document.getElementById("bot-prefix");
@@ -89,18 +91,24 @@ async function fetchLogs() {
 }
 
 async function goSecret() {
-  const pwd = prompt("Enter secret password:");
-  if (!pwd) return;
-  const res = await fetch("/api/secret-password", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `password=${encodeURIComponent(pwd)}`
-  });
-  const data = await res.json();
-  if (data.success) {
-    window.location.href = "/secret";
+  if (!secretAuthorized) {
+    const pwd = prompt("Enter secret password:");
+    if (!pwd) return;
+    const res = await fetch("/api/secret-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `password=${encodeURIComponent(pwd)}`
+    });
+    const data = await res.json();
+    if (data.success) {
+      secretAuthorized = true; // remember authorization
+      window.location.href = "/secret";
+    } else {
+      alert("Wrong secret password!");
+    }
   } else {
-    alert("Wrong secret password!");
+    // Already authorized, go straight to secret page
+    window.location.href = "/secret";
   }
 }
 </script>
