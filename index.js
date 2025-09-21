@@ -1,8 +1,8 @@
 require("dotenv").config();
-const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
-const serverModule = require("./server.js"); 
+const { Client, GatewayIntentBits } = require("discord.js");
+const server = require("./server.js"); // Import the server
 
-// --- Create bot client ---
+const PREFIX = "!";
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -11,105 +11,78 @@ const client = new Client({
   ],
 });
 
-// --- Dynamic log function ---
-async function logEvent(message) {
-  const time = new Date().toLocaleTimeString();
-  const logMsg = `[${time}] ${message}`;
-  console.log(logMsg);
-
-  try {
-    const userId = serverModule.authorizedUserId;
-    if (client.isReady() && userId) {
-      const user = await client.users.fetch(userId);
-      if (user) user.send(`📩 ${logMsg}`).catch(() => {});
-    }
-  } catch (err) {
-    console.error("Failed to send log DM:", err);
-  }
-
-  if (serverModule.addLog) serverModule.addLog(logMsg);
-}
-
-// --- Update bot activity manually ---
-function updateBotStatus() {
-  if (client.isReady() && serverModule.botSettings?.statusMessage) {
-    try {
-      client.user.setActivity(serverModule.botSettings.statusMessage, {
-        type: ActivityType.Watching,
-      });
-      logEvent(`Bot status updated: ${serverModule.botSettings.statusMessage}`);
-    } catch (err) {
-      console.error("Failed to set activity:", err);
-    }
+// --- Logs helper ---
+function logEvent(msg) {
+  server.addLog(msg); // Send to server logs
+  const authorizedId = server.authorizedUserId;
+  if (authorizedId) {
+    const user = client.users.cache.get(authorizedId);
+    if (user) user.send(`📢 ${msg}`).catch(() => {}); // DM logs
   }
 }
 
-// --- Link dashboard update ---
-serverModule.setUpdateBotStatus(updateBotStatus);
+// --- Set bot status updater for server dashboard ---
+server.setUpdateBotStatus(() => {
+  if (client.user) {
+    client.user.setActivity(server.botSettings.statusMessage, { type: "WATCHING" });
+    logEvent(`Bot status updated to: ${server.botSettings.statusMessage}`);
+  }
+});
 
-// --- Bot ready ---
+// --- On bot ready ---
 client.once("ready", () => {
   logEvent(`Bot logged in as ${client.user.tag}`);
-});
-
-// --- Commands ---
-const PREFIX = "!";
-const commands = serverModule.commands;
-
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
-  if (!message.content.startsWith(PREFIX)) return;
-
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const commandName = args.shift().toLowerCase();
-  const command = commands[commandName];
-  if (!command) return;
-
-  try {
-    switch (commandName) {
-      case "ping":
-        await message.reply("🏓 Pong!");
-        break;
-
-      case "status":
-        await message.reply(
-          `✅ Online as ${client.user.tag}\n🌍 Servers: ${client.guilds.cache.size}`
-        );
-        break;
-
-      case "cmds":
-        let list = "**🤖 Available Commands:**\n\n";
-        for (const [name, desc] of Object.entries(commands)) {
-          let note = "";
-          if (name === "logs" || name === "dashboard") note = " (Dashboard Only)";
-          list += `\`!${name}\` → ${desc}${note}\n`;
-        }
-        await message.channel.send(list);
-        break;
-
-      case "logs":
-        await message.author.send(
-          "📂 Logs are automatically sent to your DMs from the dashboard authorization."
-        );
-        break;
-
-      case "dashboard":
-        await message.reply("🌐 Open the bot dashboard: http://localhost:3000/dashboard");
-        break;
-
-      default:
-        await message.reply("❌ Unknown command");
-    }
-
-    await logEvent(`Command !${commandName} used by ${message.author.tag} in #${message.channel.name}`);
-  } catch (err) {
-    console.error("Command error:", err);
-    message.reply("⚠️ Error running command.");
+  // Set initial status
+  if (client.user) {
+    client.user.setActivity(server.botSettings.statusMessage, { type: "WATCHING" });
   }
 });
 
-// --- Login ---
+// --- Command handler ---
+client.on("messageCreate", (message) => {
+  if (message.author.bot) return;
+
+  const isCommand = message.content.startsWith(PREFIX);
+  const isMentioned = message.mentions.has(client.user);
+  if (!isCommand && !isMentioned) return;
+
+  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+  const command = args.shift()?.toLowerCase();
+
+  if (isCommand) logEvent(`Command used by ${message.author.tag}: ${message.content}`);
+
+  // --- !cmds command ---
+  if (command === "cmds") {
+    const cmdsList = Object.entries(server.commands)
+      .map(([cmd, desc]) => `• ${cmd}: ${desc}`)
+      .join("\n");
+    message.author.send(`📜 Available commands:\n${cmdsList}`).catch(() => {});
+    return;
+  }
+
+  // --- !status command ---
+  if (command === "status") {
+    message.reply(`Current bot status: ${server.botSettings.statusMessage}`);
+    return;
+  }
+
+  // --- Ping command ---
+  if (command === "ping") {
+    message.reply("🏓 Pong!");
+    return;
+  }
+
+  // --- Dashboard command ---
+  if (command === "dashboard") {
+    message.reply("🌐 Access the dashboard at http://localhost:3000/dashboard");
+    return;
+  }
+
+  // Other commands can go here...
+});
+
+// --- Start bot ---
 client.login(process.env.DISCORD_TOKEN).catch((err) => {
-  console.error("❌ Failed to login:", err);
-  process.exit(1);
+  console.error("Failed to login:", err);
+  logEvent(`❌ Bot login failed: ${err.message}`);
 });
