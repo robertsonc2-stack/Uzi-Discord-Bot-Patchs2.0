@@ -5,9 +5,6 @@ const path = require("path");
 let updateBotStatusCallback = null;
 let logs = [];
 
-const DASHBOARD_PASSWORD = "secret77";
-const SECRET_PASSWORD = "owner77";
-
 // Register a bot status updater from index.js
 function setUpdateBotStatus(callback) {
   updateBotStatusCallback = callback;
@@ -32,36 +29,12 @@ function getLogs() {
 // HTTP server
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const password = url.searchParams.get("password");
   let filePath = "." + url.pathname;
 
   if (filePath === "./") filePath = "./dashboard.html";
 
-  // Dashboard password check
-  if (filePath.endsWith("dashboard.html")) {
-    if (password !== DASHBOARD_PASSWORD) {
-      res.writeHead(401, { "Content-Type": "text/plain" });
-      res.end("Unauthorized: Invalid Dashboard Password");
-      return;
-    }
-  }
-
-  // Secret page password check
-  if (filePath.endsWith("secret.html") || filePath.startsWith("./logs")) {
-    if (password !== SECRET_PASSWORD) {
-      res.writeHead(401, { "Content-Type": "text/plain" });
-      res.end("Unauthorized: Invalid Secret Page Password");
-      return;
-    }
-  }
-
   // Change bot status endpoint
   if (url.pathname === "/change-status") {
-    if (password !== DASHBOARD_PASSWORD) {
-      res.writeHead(401, { "Content-Type": "text/plain" });
-      res.end("Unauthorized: Invalid Password");
-      return;
-    }
     const newStatus = url.searchParams.get("status") || "Online";
     triggerUpdateBotStatus(newStatus);
     addLog(`Bot status changed to: ${newStatus}`);
@@ -118,4 +91,3 @@ module.exports = {
   addLog,
   getLogs
 };
-
