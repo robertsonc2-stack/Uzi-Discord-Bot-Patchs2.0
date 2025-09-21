@@ -26,4 +26,4 @@ client.once("ready", () => {
 server.setUpdateBotStatus(updateBotStatus);
 
 // Login bot
-client.login("YOUR_DISCORD_BOT_TOKEN");
+client.login("MTQxMzg1MjQ5NTY4NzcxMjgxMg.G6XUyV.tQoP56YUEuBj_PiRZB9m9LyMXaE3orU1S8xY2o");
