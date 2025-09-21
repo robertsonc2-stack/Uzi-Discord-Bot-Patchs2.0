@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bot Dashboard</title>
 <style>
-  body { font-family: Arial, sans-serif; background: #1e1e1e; color: #fff; padding: 20px; }
-  h1 { color: #f39c12; }
-  label, input, button { display: block; margin-top: 10px; }
-  input { padding: 5px; width: 300px; }
-  button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
+body { font-family: Arial, sans-serif; background: #1e1e1e; color: #fff; padding: 20px; }
+h1 { color: #f39c12; }
+label, input, button { display: block; margin-top: 10px; }
+input { padding: 5px; width: 300px; }
+button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -27,45 +27,46 @@
   <span id="prefix">!</span>
 </div>
 
-<!-- Secret Logs Button -->
 <div>
   <button id="secretButton">Access Secret Logs</button>
 </div>
 
 <script>
 (async function askPassword() {
-  const correctPassword = "secret77";
-  let password = prompt("Enter dashboard password:");
-  if (password !== correctPassword) {
-    alert("Wrong password! Access denied.");
-    document.body.innerHTML = "<h2>Access Denied</h2>";
-    return;
-  }
-
-  const statusInput = document.getElementById("status");
-  const changeButton = document.getElementById("changeStatus");
-  const secretButton = document.getElementById("secretButton");
-  
-  changeButton.addEventListener("click", async () => {
-    const newStatus = statusInput.value.trim();
-    if (!newStatus) return alert("Please enter a status message.");
-
-    try {
-      const response = await fetch(`/change-status?status=${encodeURIComponent(newStatus)}`);
-      if (!response.ok) throw new Error("Failed to change status");
-      alert("Status updated successfully!");
-    } catch (err) {
-      alert("Error: " + err.message);
+    const correctPassword = "secret77";
+    let password = prompt("Enter dashboard password:");
+    if (password !== correctPassword) {
+        alert("Wrong password! Access denied.");
+        document.body.innerHTML = "<h2>Access Denied</h2>";
+        return;
     }
-  });
 
-  // Secret logs button click
-  secretButton.addEventListener("click", () => {
-    window.location.href = "/secret.html";
-  });
+    const statusInput = document.getElementById("status");
+    const changeButton = document.getElementById("changeStatus");
+    const secretButton = document.getElementById("secretButton");
+
+    changeButton.addEventListener("click", async () => {
+        const newStatus = statusInput.value.trim();
+        if (!newStatus) return alert("Please enter a status message.");
+        try {
+            const response = await fetch(`/change-status?status=${encodeURIComponent(newStatus)}`);
+            if (!response.ok) throw new Error("Failed to change status");
+            alert("Status updated successfully!");
+        } catch (err) {
+            alert("Error: " + err.message);
+        }
+    });
+
+    secretButton.addEventListener("click", async () => {
+        try {
+            await fetch(`/log-access?user=${encodeURIComponent("Owner")}`);
+            window.location.href = "/secret.html";
+        } catch (err) {
+            alert("Error logging access: " + err.message);
+        }
+    });
 })();
 </script>
 
 </body>
 </html>
-
