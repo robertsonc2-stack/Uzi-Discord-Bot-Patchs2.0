@@ -16,17 +16,22 @@ const PREFIX = "!";
 function logEvent(message) {
   console.log(message);
   serverModule.addLog(message);
-  // Send to your DM
+
+  // Send to your DM (OWNER_ID in .env)
   const ownerId = process.env.OWNER_ID;
   if (ownerId && client.users.cache.has(ownerId)) {
-    client.users.cache.get(ownerId).send(message).catch(()=>{});
+    client.users.cache.get(ownerId).send(message).catch(() => {});
   }
 }
 
 // --- Bot status update ---
 function updateBotStatus() {
   if (!client.user) return;
-  client.user.setActivity(serverModule.botSettings.statusMessage || "Online", { type: 3 }).catch(()=>{});
+  try {
+    client.user.setActivity(serverModule.botSettings.statusMessage || "Online", { type: 3 }); // WATCHING
+  } catch (err) {
+    console.error("Failed to update bot status:", err);
+  }
 }
 serverModule.setUpdateBotStatus(updateBotStatus);
 
@@ -35,7 +40,9 @@ const commands = {
   cmds: {
     description: "Show all commands",
     execute: async (message) => {
-      let cmdList = Object.keys(commands).map(cmd => `\`${PREFIX}${cmd}\` → ${commands[cmd].description}`).join("\n");
+      let cmdList = Object.keys(commands)
+        .map(cmd => `\`${PREFIX}${cmd}\` → ${commands[cmd].description}`)
+        .join("\n");
       message.channel.send(`**Available Commands:**\n${cmdList}`);
     }
   },
@@ -59,10 +66,16 @@ client.on("messageCreate", async (message) => {
   const cmd = args.shift().toLowerCase();
 
   if (commands[cmd]) {
-    try { await commands[cmd].execute(message); } 
-    catch (err) { message.reply("⚠️ Error executing command"); logEvent(`Command error: ${err}`); }
+    try {
+      await commands[cmd].execute(message);
+      logEvent(`Command executed: ${cmd} by ${message.author.tag}`);
+    } catch (err) {
+      message.reply("⚠️ Error executing command");
+      logEvent(`Command error: ${err}`);
+    }
   }
 });
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN).catch(console.error);
+
