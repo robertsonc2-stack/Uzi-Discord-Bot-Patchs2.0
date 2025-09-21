@@ -1,10 +1,14 @@
 require("dotenv").config();
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
 const server = require("./server.js"); // Our server.js
 
 const PREFIX_DEFAULT = server.botSettings.prefix || "!";
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
 });
 
 // --- Logs helper ---
@@ -27,9 +31,12 @@ client.once("ready", () => {
 function updateBotStatus() {
   if (client.user) {
     const statusMsg = server.botSettings.statusMessage || "Watching everything";
-    // setActivity does not return a promise, so .catch() is removed
-    client.user.setActivity(statusMsg, { type: "WATCHING" });
-    logEvent(`Status set to: ${statusMsg}`);
+    try {
+      client.user.setActivity(statusMsg, { type: ActivityType.Watching });
+      logEvent(`Status set to: ${statusMsg}`);
+    } catch (err) {
+      logEvent(`❌ Failed to set status: ${err.message}`);
+    }
   }
 }
 
@@ -60,8 +67,9 @@ client.on("messageCreate", async (message) => {
   // --- Commands ---
   if (command === "ping") return message.reply("🏓 Pong!");
   if (command === "status") return message.reply(`Current status: ${server.botSettings.statusMessage}`);
+  
   if (command === "cmds") {
-    let cmdList = Object.entries(commands)
+    const cmdList = Object.entries(commands)
       .map(([cmd, desc]) => `${prefix}${cmd} → ${desc}`)
       .join("\n");
     return message.author.send(`**Available Commands:**\n${cmdList}`);
@@ -69,7 +77,7 @@ client.on("messageCreate", async (message) => {
 
   if (command === "logs") {
     if (message.author.id !== server.authorizedUserId) return; // Only DM to authorized user
-    return message.author.send("**Bot Logs:**\n" + server.addLog.logs?.join("\n") || "No logs yet.");
+    return message.author.send("**Bot Logs:**\n" + (server.logs?.join("\n") || "No logs yet."));
   }
 
   if (command === "dashboard") {
