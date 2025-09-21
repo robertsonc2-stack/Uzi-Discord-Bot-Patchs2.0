@@ -1,81 +1,80 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
-const serverModule = require("./server.js");
+const server = require("./server.js");
+
+const PREFIX = "!"; // Bot prefix
+const OWNER_ID = "YOUR_USER_ID"; // Replace with your Discord ID
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+    GatewayIntentBits.MessageContent,
+  ],
 });
-
-const PREFIX = "!";
 
 // --- Logs helper ---
 function logEvent(message) {
   console.log(message);
-  serverModule.addLog(message);
-
-  // Send to your DM (OWNER_ID in .env)
-  const ownerId = process.env.OWNER_ID;
-  if (ownerId && client.users.cache.has(ownerId)) {
-    client.users.cache.get(ownerId).send(message).catch(() => {});
-  }
+  server.addLog(message); // Sends logs to secret.html
 }
 
-// --- Bot status update ---
-function updateBotStatus() {
-  if (!client.user) return;
+// --- Update bot status safely ---
+function updateBotStatus(newStatus) {
   try {
-    client.user.setActivity(serverModule.botSettings.statusMessage || "Online", { type: 3 }); // WATCHING
+    if (client.user && typeof client.user.setActivity === "function") {
+      client.user.setActivity(newStatus || "Online", { type: "WATCHING" });
+      logEvent(`Bot status updated to: ${newStatus}`);
+    }
   } catch (err) {
     console.error("Failed to update bot status:", err);
   }
 }
-serverModule.setUpdateBotStatus(updateBotStatus);
 
-// --- Commands ---
-const commands = {
-  cmds: {
-    description: "Show all commands",
-    execute: async (message) => {
-      let cmdList = Object.keys(commands)
-        .map(cmd => `\`${PREFIX}${cmd}\` → ${commands[cmd].description}`)
-        .join("\n");
-      message.channel.send(`**Available Commands:**\n${cmdList}`);
-    }
-  },
-  ping: {
-    description: "Ping the bot",
-    execute: (message) => message.reply("🏓 Pong!")
-  }
-};
+// Register the status updater with server
+server.setUpdateBotStatus(updateBotStatus);
 
-// --- Client ready ---
 client.once("ready", () => {
   logEvent(`Bot logged in as ${client.user.tag}`);
-  updateBotStatus();
+  updateBotStatus("Online");
 });
 
-// --- Message handler ---
 client.on("messageCreate", async (message) => {
-  if (message.author.bot || !message.content.startsWith(PREFIX)) return;
+  if (message.author.bot) return; // Ignore bots
+
+  const isCommand = message.content.startsWith(PREFIX);
+  const userMessage = message.content.trim();
+
+  // Log only commands and user messages to bot
+  if (isCommand || userMessage.toLowerCase().includes(client.user.username.toLowerCase())) {
+    logEvent(`[${message.author.tag}] ${message.content}`);
+  }
+
+  if (!isCommand) return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const cmd = args.shift().toLowerCase();
+  const command = args.shift().toLowerCase();
 
-  if (commands[cmd]) {
-    try {
-      await commands[cmd].execute(message);
-      logEvent(`Command executed: ${cmd} by ${message.author.tag}`);
-    } catch (err) {
-      message.reply("⚠️ Error executing command");
-      logEvent(`Command error: ${err}`);
-    }
+  // --- Commands ---
+  if (command === "status") {
+    if (message.author.id !== OWNER_ID) return message.reply("❌ You cannot change the bot status.");
+    const newStatus = args.join(" ");
+    if (!newStatus) return message.reply("⚠️ Please provide a new status.");
+    updateBotStatus(newStatus);
+    return message.reply(`✅ Bot status updated to: ${newStatus}`);
+  }
+
+  if (command === "cmds") {
+    const availableCommands = [
+      "`!status <message>` → Change bot status (owner only)",
+      "`!cmds` → Show this command list"
+    ];
+    return message.reply("**Available Commands:**\n" + availableCommands.join("\n"));
   }
 });
 
-// --- Login ---
-client.login(process.env.DISCORD_TOKEN).catch(console.error);
-
+// --- Start bot ---
+client.login(process.env.DISCORD_TOKEN)
+  .catch(err => {
+    console.error("Failed to login:", err);
+  });
