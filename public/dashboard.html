@@ -3,13 +3,29 @@
 <head>
   <title>Bot Dashboard</title>
   <style>
-    body { font-family: Arial; padding: 20px; background: #f0f0f0; }
-    .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
-    button { padding: 10px 20px; margin: 5px; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f0f2f5; }
+    .container { max-width: 700px; margin: 80px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    h1 { text-align: center; margin-bottom: 20px; }
+    input, button { padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; width: 100%; }
+    button { background: #007bff; color: #fff; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    /* Password Modal */
+    #passwordModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; }
+    #passwordBox { background: white; padding: 30px; border-radius: 10px; width: 300px; text-align: center; }
+    #passwordBox input { width: 90%; margin-bottom: 15px; }
   </style>
 </head>
 <body>
-  <div class="container">
+  <!-- Password Modal -->
+  <div id="passwordModal">
+    <div id="passwordBox">
+      <h2>Enter Dashboard Password</h2>
+      <input type="password" id="dashboardPassword" placeholder="Password">
+      <button onclick="checkDashboardPassword()">Unlock</button>
+    </div>
+  </div>
+
+  <div class="container" id="mainContent" style="display:none;">
     <h1>Bot Dashboard</h1>
     <label>Status Message:</label>
     <input type="text" id="status" placeholder="Online">
@@ -18,33 +34,32 @@
   </div>
 
   <script>
-    // Password check for dashboard
-    const dashboardPassword = prompt("Enter dashboard password (secret77):");
-    fetch(`/check-password?password=${dashboardPassword}&page=dashboard`)
-      .then(res => res.text())
-      .then(result => {
-        if(result !== "OK") {
-          alert("Wrong password");
-          document.body.innerHTML = "<h1>Access Denied</h1>";
-        }
-      });
+    async function checkDashboardPassword() {
+      const pwd = document.getElementById("dashboardPassword").value;
+      const res = await fetch(`/check-password?password=${pwd}&page=dashboard`);
+      const result = await res.text();
+      if(result === "OK") {
+        document.getElementById("passwordModal").style.display = "none";
+        document.getElementById("mainContent").style.display = "block";
+      } else {
+        alert("Wrong password, try again.");
+      }
+    }
 
     function updateStatus() {
       const status = document.getElementById('status').value;
-      alert(`Status updated to: ${status} (simulated)`); // Replace with server integration
+      alert(`Status updated to: ${status} (simulated)`); // Hook into server here
     }
 
-    function goSecret() {
-      const secretPassword = prompt("Enter secret page password (owner77):");
-      fetch(`/check-password?password=${secretPassword}&page=secret`)
-        .then(res => res.text())
-        .then(result => {
-          if(result === "OK") {
-            window.location.href = "secret.html";
-          } else {
-            alert("Wrong password");
-          }
-        });
+    async function goSecret() {
+      const pwd = prompt("Enter secret password to continue:");
+      const res = await fetch(`/check-password?password=${pwd}&page=secret`);
+      const result = await res.text();
+      if(result === "OK") {
+        window.location.href = "secret.html";
+      } else {
+        alert("Wrong password");
+      }
     }
   </script>
 </body>
