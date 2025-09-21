@@ -1,59 +1,38 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bot Dashboard</title>
-<style>
-  body { font-family: Arial, sans-serif; background: #1e1e1e; color: #fff; padding: 20px; }
-  h1 { color: #f39c12; }
-  label, input, button { display: block; margin-top: 10px; }
-  input { padding: 5px; width: 300px; }
-  button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
-</style>
+  <title>Bot Dashboard</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f0f0f0; }
+    .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
+    button { padding: 10px 20px; margin: 5px; }
+  </style>
 </head>
 <body>
+  <div class="container">
+    <h1>Bot Dashboard</h1>
+    <label>Status Message:</label>
+    <input type="text" id="status" placeholder="Online">
+    <button onclick="updateStatus()">Change Status</button>
+    <button onclick="goSecret()">Go to Secret Page</button>
+  </div>
 
-<h1>Bot Dashboard</h1>
-
-<div>
-  <label for="status">Bot Status Message:</label>
-  <input type="text" id="status" placeholder="Online">
-  <button id="changeStatus">Change Status</button>
-</div>
-
-<div>
-  <label>Bot Prefix:</label>
-  <span id="prefix">!</span>
-</div>
-
-<script>
-(async function askPassword() {
-  const correctPassword = "secret77";
-  let password = prompt("Enter dashboard password:");
-  if (password !== correctPassword) {
-    alert("Wrong password! Access denied.");
-    document.body.innerHTML = "<h2>Access Denied</h2>";
-    return;
-  }
-
-  const statusInput = document.getElementById("status");
-  const changeButton = document.getElementById("changeStatus");
-  
-  changeButton.addEventListener("click", async () => {
-    const newStatus = statusInput.value.trim();
-    if (!newStatus) return alert("Please enter a status message.");
-
-    try {
-      const response = await fetch(`/change-status?status=${encodeURIComponent(newStatus)}`);
-      if (!response.ok) throw new Error("Failed to change status");
-      alert("Status updated successfully!");
-    } catch (err) {
-      alert("Error: " + err.message);
+  <script>
+    function updateStatus() {
+      const status = document.getElementById('status').value;
+      fetch(`/update-status?status=${encodeURIComponent(status)}`)
+        .then(res => alert('Status updated!'))
+        .catch(err => alert('Error updating status'));
     }
-  });
-})();
-</script>
 
+    function goSecret() {
+      const password = prompt("Enter password (secret77):");
+      if(password === "secret77") {
+        window.location.href = "secret.html";
+      } else {
+        alert("Wrong password");
+      }
+    }
+  </script>
 </body>
 </html>
