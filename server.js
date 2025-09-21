@@ -19,7 +19,8 @@ function addLog(msg) {
 }
 
 // --- Authorized user ---
-let authorizedUserId = null; // set in dashboard after password login
+let authorizedDashboard = false;
+let authorizedSecret = false;
 
 // --- Update bot status callback ---
 let updateBotStatusCallback = () => {};
@@ -27,7 +28,7 @@ function setUpdateBotStatus(cb) {
   updateBotStatusCallback = cb;
 }
 
-// --- HTML pages ---
+// --- HTML helper ---
 function serveFile(filePath, res, contentType = "text/html") {
   fs.readFile(filePath, (err, data) => {
     if (err) {
@@ -47,12 +48,14 @@ const server = http.createServer((req, res) => {
     }
 
     if (req.url === "/secret") {
-      // Secret password page
+      if (!authorizedSecret) {
+        res.writeHead(401);
+        return res.end("Unauthorized: enter the correct password on dashboard");
+      }
       return serveFile(path.join(__dirname, "public", "secret.html"), res);
     }
 
     if (req.url === "/api/logs") {
-      // Only return logs if authorized
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end(JSON.stringify(logs));
     }
@@ -67,35 +70,43 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === "POST") {
-    if (req.url === "/api/password") {
-      // Simple password check
-      let body = "";
-      req.on("data", (chunk) => (body += chunk));
-      req.on("end", () => {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      // Dashboard password
+      if (req.url === "/api/dashboard-password") {
         const data = new URLSearchParams(body);
-        const password = data.get("password");
-        if (password === "coltonsr77") {
+        if (data.get("password") === "key77") {
+          authorizedDashboard = true;
           res.writeHead(200, { "Content-Type": "application/json" });
           return res.end(JSON.stringify({ success: true }));
         }
         res.writeHead(401);
         return res.end(JSON.stringify({ success: false }));
-      });
-      return;
-    }
+      }
 
-    if (req.url === "/api/set-status") {
-      let body = "";
-      req.on("data", (chunk) => (body += chunk));
-      req.on("end", () => {
+      // Secret password
+      if (req.url === "/api/secret-password") {
+        const data = new URLSearchParams(body);
+        if (data.get("password") === "coltonsr77") {
+          authorizedSecret = true;
+          res.writeHead(200, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ success: true }));
+        }
+        res.writeHead(401);
+        return res.end(JSON.stringify({ success: false }));
+      }
+
+      // Update status
+      if (req.url === "/api/set-status") {
         const data = JSON.parse(body);
         if (!data.statusMessage) return res.end("Missing status");
         botSettings.statusMessage = data.statusMessage;
-        updateBotStatusCallback(); // trigger bot status update
-        res.end(JSON.stringify({ success: true }));
-      });
-      return;
-    }
+        updateBotStatusCallback();
+        return res.end(JSON.stringify({ success: true }));
+      }
+    });
+    return;
   }
 
   res.writeHead(404);
@@ -113,6 +124,5 @@ module.exports = {
   botSettings,
   logs,
   addLog,
-  authorizedUserId,
   setUpdateBotStatus,
 };
