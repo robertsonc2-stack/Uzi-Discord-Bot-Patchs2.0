@@ -1,49 +1,80 @@
-// index.js
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
+const fetch = require("node-fetch");
 const server = require("./server.js");
+
+const BOT_VERSION = process.env.BOT_VERSION || "1.0.0";
+const GITHUB_REPO = process.env.GITHUB_REPO || "yourusername/yourrepo";
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-const PREFIX = "!";
-
 function logEvent(message) {
-  server.addLog(message); // send logs to server.js
+  console.log(message);
+  if (server.addLog) {
+    server.addLog(`[${new Date().toLocaleString()}] ${message}`);
+  }
 }
 
 client.once("ready", () => {
-  logEvent(`Bot logged in as ${client.user.tag}`);
-  client.user.setActivity("Online", { type: 3 });
+  logEvent(`Bot logged in as ${client.user.tag} (ID: ${process.env.DISCORD_CLIENT_ID})`);
 });
 
+// --- Function to check GitHub updates ---
+async function checkForUpdates() {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
+    const data = await res.json();
+
+    if (data.tag_name) {
+      if (data.tag_name === BOT_VERSION) {
+        return { upToDate: true, current: BOT_VERSION, latest: data.tag_name, url: data.html_url };
+      } else {
+        return { upToDate: false, current: BOT_VERSION, latest: data.tag_name, url: data.html_url };
+      }
+    }
+    return { error: true, current: BOT_VERSION };
+  } catch (err) {
+    console.error(err);
+    return { error: true, current: BOT_VERSION };
+  }
+}
+
 client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
+  if (!message.content.startsWith("!")) return;
 
-  // Log only commands or messages directed to bot
-  if (message.content.startsWith(PREFIX)) {
-    logEvent(`Command used: ${message.content} by ${message.author.tag}`);
+  const command = message.content.slice(1).toLowerCase();
+
+  if (command === "cmds") {
+    message.reply(
+      "**Available Commands:**\n" +
+      "`!cmds` - Show this list\n" +
+      "`!updatecheck` - Check for bot updates\n" +
+      "`!dashboard` - Open the dashboard\n" +
+      "`!log` - Show recent logs"
+    );
   }
 
-  // Status command
-  if (message.content.startsWith(`${PREFIX}status`)) {
-    const statusMessage = message.content.slice(`${PREFIX}status`.length).trim();
-    if (!statusMessage) return message.reply("Please provide a status message.");
-    client.user.setActivity(statusMessage, { type: 3 });
-    logEvent(`Status updated to: ${statusMessage}`);
-    return message.reply(`Bot status updated to: "${statusMessage}"`);
-  }
+  else if (command === "updatecheck") {
+    const updateInfo = await checkForUpdates();
 
-  // cmds command
-  if (message.content.startsWith(`${PREFIX}cmds`)) {
-    const commandsList = "`!status <message>` → Update bot status\n`!cmds` → List all commands";
-    return message.reply(`Available commands:\n${commandsList}`);
+    if (updateInfo.error) {
+      message.reply(`ℹ️ Could not fetch updates. You are on version **${updateInfo.current}**`);
+    } else if (updateInfo.upToDate) {
+      message.reply(`✅ You are up-to-date! Current version: **${updateInfo.current}**`);
+    } else {
+      message.reply(`⚠️ Update available!\nCurrent: **${updateInfo.current}**\nLatest: **${updateInfo.latest}**\n\nGet it here: ${updateInfo.url}`);
+    }
   }
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+// Expose update check to server.js so dashboard can use it
+module.exports = { checkForUpdates, BOT_VERSION };
+
