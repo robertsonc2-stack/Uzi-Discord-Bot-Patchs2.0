@@ -3,7 +3,7 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const fetch = require("node-fetch");
 const server = require("./server.js");
 
-const BOT_VERSION = process.env.BOT_VERSION || "1.0.0";
+const BOT_VERSION = process.env.BOT_VERSION || "1.0.2";
 const GITHUB_REPO = process.env.GITHUB_REPO || "yourusername/yourrepo";
 
 const client = new Client({
