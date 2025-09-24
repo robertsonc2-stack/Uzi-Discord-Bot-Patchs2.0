@@ -1,73 +1,113 @@
-// index.js
-const { Client, GatewayIntentBits } = require("discord.js");
-const { checkForUpdates, BOT_VERSION } = require("./updates");
 require("dotenv").config();
+const { Client, GatewayIntentBits } = require("discord.js");
+const https = require("https");
 
+// Create Discord client
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-const prefix = "!";
+// Load settings from server module
+const serverModule = require("./server.js"); // your HTTP server with dashboard
 
-// ✅ Bot Ready
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+const OWNER_ID = process.env.DISCORD_OWNER_ID;
+const GITHUB_REPO = process.env.GITHUB_REPO;
+
+let logs = [];
+
+// Logging helper
+function logEvent(message) {
+  const timestamp = new Date().toLocaleString();
+  const logMsg = `[${timestamp}] ${message}`;
+  logs.push(logMsg);
+  // Send log to owner DM
+  client.users.fetch(OWNER_ID).then(user => {
+    user.send(logMsg).catch(() => {});
+  });
+  console.log(logMsg);
+}
+
+// Bot status update helper
+function updateBotStatus() {
+  const statusMsg = serverModule.botSettings.statusMessage || "Online";
+  if (client.user) client.user.setActivity(statusMsg, { type: 3 }); // WATCHING
+}
+
+// GitHub update check
+function checkForUpdates() {
+  if (!GITHUB_REPO) return logEvent("GitHub repo not set in .env");
+
+  const apiUrl = GITHUB_REPO.replace("https://github.com/", "https://api.github.com/repos/") + "/releases/latest";
+  const options = { headers: { "User-Agent": "Node.js" } };
+
+  https.get(apiUrl, options, (res) => {
+    let data = "";
+    res.on("data", chunk => data += chunk);
+    res.on("end", () => {
+      try {
+        const release = JSON.parse(data);
+        logEvent(`Latest release: ${release.tag_name}`);
+      } catch (err) {
+        logEvent("Failed to parse GitHub release info: " + err);
+      }
+    });
+  }).on("error", err => logEvent("Error fetching GitHub release: " + err));
+}
+
+// Discord ready event
 client.once("ready", () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
+  logEvent(`Bot logged in as ${client.user.tag}`);
+  updateBotStatus();
 });
 
-// ✅ Handle Commands
+// Message handler
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
-  if (!message.content.startsWith(prefix)) return;
 
-  const args = message.content.slice(prefix.length).trim().split(/ +/);
-  const command = args.shift().toLowerCase();
+  const content = message.content.toLowerCase();
 
-  // !ping
-  if (command === "ping") {
-    return message.reply("🏓 Pong!");
-  }
-
-  // !status <new status>
-  if (command === "status") {
-    const newStatus = args.join(" ");
-    if (!newStatus) return message.reply("⚠️ Please provide a status message.");
-    client.user.setActivity(newStatus, { type: 0 }); // "PLAYING" type
-    return message.reply(`✅ Status updated to: **${newStatus}**`);
-  }
-
-  // !cmds (list all commands)
-  if (command === "cmds") {
+  // !cmds
+  if (content === "!cmds") {
     const commandsList = [
-      "!ping - Replies with Pong!",
-      "!status <text> - Change bot status",
-      "!checkupdates - Check GitHub for updates",
-      "!version - Show current bot version",
+      "!cmds - Show this message",
+      "!update - Check GitHub for updates",
+      "!status - Show current bot status",
     ];
-    return message.reply("📜 **Available Commands:**\n" + commandsList.join("\n"));
+    message.reply("Available commands:\n" + commandsList.join("\n"));
+    return;
   }
 
-  // !version
-  if (command === "version") {
-    return message.reply(`🤖 Current Bot Version: **${BOT_VERSION}**`);
+  // !update
+  if (content === "!update") {
+    checkForUpdates();
+    message.reply("Checking GitHub repo for updates...");
+    return;
   }
 
-  // !checkupdates
-  if (command === "checkupdates") {
-    const update = await checkForUpdates();
-
-    if (update.error) {
-      return message.reply(`⚠️ Failed to check updates: ${update.error}`);
-    }
-
-    if (update.upToDate) {
-      message.reply(`✅ Bot is up to date!\nCurrent Version: **${update.current}**`);
-    } else {
-      message.reply(
-        `⚠️ Update available!\nCurrent: **${update.current}**\nLatest: **${update.latest}**\nDownload: ${update.url}`
-      );
-    }
+  // !status
+  if (content === "!status") {
+    message.reply(`Bot status: ${serverModule.botSettings.statusMessage || "Online"}`);
+    return;
   }
+
+  // Log any user messages trying to interact with the bot
+  logEvent(`Message from ${message.author.tag}: ${message.content}`);
 });
 
-// ✅ Login
-client.login(process.env.BOT_TOKEN);
+// Start server and bot
+serverModule.startServer(() => {
+  logEvent("HTTP server started at http://localhost:3000/dashboard.html");
+  client.login(DISCORD_TOKEN).catch(err => logEvent("Failed to login: " + err));
+});
+
+// Export logs and status for server.js
+module.exports = {
+  logs,
+  updateBotStatus,
+  checkForUpdates
+};
