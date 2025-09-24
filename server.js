@@ -1,58 +1,58 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const { checkForUpdates, BOT_VERSION } = require("./index.js");
 
 const PORT = 3000;
-const DASHBOARD_PASSWORD = "secret77"; // Dashboard password
-const SECRET_PASSWORD = "owner77";     // Secret page password
-
 let logs = [];
 
-// Add log function
-function addLog(message) {
-  const timestamp = new Date().toLocaleString();
-  const logMessage = `[${timestamp}] ${message}`;
-  logs.push(logMessage);
-  console.log(logMessage);
+// Helper to serve files
+function serveFile(res, filePath, contentType) {
+  fs.readFile(filePath, (err, content) => {
+    if (err) {
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      res.end("404 Not Found");
+    } else {
+      res.writeHead(200, { "Content-Type": contentType });
+      res.end(content);
+    }
+  });
 }
 
-const server = http.createServer((req, res) => {
-  if (req.url === "/logs.json") {
+// Main server
+const server = http.createServer(async (req, res) => {
+  if (req.url === "/" || req.url === "/dashboard.html") {
+    serveFile(res, path.join(__dirname, "public", "dashboard.html"), "text/html");
+  }
+  else if (req.url === "/dashboard-data") {
+    const updateInfo = await checkForUpdates();
     res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify(logs));
+    res.end(JSON.stringify({
+      version: BOT_VERSION,
+      updateInfo,
+      logs
+    }));
   }
-
-  if (req.url.startsWith("/check-password")) {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const password = url.searchParams.get("password");
-    const page = url.searchParams.get("page");
-
-    if ((page === "dashboard" && password === DASHBOARD_PASSWORD) ||
-        (page === "secret" && password === SECRET_PASSWORD)) {
-      res.writeHead(200, { "Content-Type": "text/plain" });
-      return res.end("OK");
-    } else {
-      res.writeHead(403, { "Content-Type": "text/plain" });
-      return res.end("WRONG");
-    }
+  else if (req.url.endsWith(".js")) {
+    serveFile(res, path.join(__dirname, "public", req.url), "application/javascript");
   }
-
-  let filePath = path.join(
-    __dirname,
-    "public",
-    req.url === "/" ? "dashboard.html" : req.url
-  );
-
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      res.writeHead(404);
-      return res.end("404 Not Found");
-    }
-    res.writeHead(200);
-    res.end(data);
-  });
+  else if (req.url.endsWith(".css")) {
+    serveFile(res, path.join(__dirname, "public", req.url), "text/css");
+  }
+  else {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("404 Not Found");
+  }
 });
 
-server.listen(PORT, () => addLog(`Server running at http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Dashboard running at http://localhost:${PORT}`);
+});
 
-module.exports = { addLog, logs };
+// Allow adding logs from other files
+function addLog(message) {
+  logs.push(message);
+  if (logs.length > 50) logs.shift();
+}
+
+module.exports = { addLog };
