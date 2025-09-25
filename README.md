@@ -17,6 +17,7 @@
 - `!logs` — (Owner only) Retrieve today's log file
 - `!logs YYYY-MM-DD` — (Owner only) Retrieve log file for a specific date
 - `!logs list` — (Owner only) List all available log files
+- `!updatecheck` -Checks for Updates
 
 ## Character Personalities
 
