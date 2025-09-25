@@ -1,67 +1,50 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Bot Dashboard</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; text-align: center; padding: 50px; }
-    #container { background: white; padding: 20px; border-radius: 10px; width: 400px; margin: auto; }
-    input, button { padding: 10px; margin: 5px; width: 90%; }
-    h1 { color: #333; }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
+    .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); margin-bottom: 20px; }
+    h2 { margin-top: 0; }
+    .uptodate { color: green; }
+    .update { color: red; }
   </style>
 </head>
 <body>
-  <div id="container">
-    <h1>Bot Dashboard</h1>
-    <div id="loginBox">
-      <input type="password" id="password" placeholder="Enter dashboard password" />
-      <button onclick="login()">Login</button>
-    </div>
+  <div class="card">
+    <h2>Bot Status</h2>
+    <p><b>Version:</b> <span id="version"></span></p>
+    <p id="updateStatus"></p>
+  </div>
 
-    <div id="dashboard" style="display:none;">
-      <h2>Update Bot Status</h2>
-      <input id="statusInput" type="text" placeholder="Enter new status" />
-      <button onclick="updateStatus()">Update</button>
-      <p id="msg"></p>
-      <hr />
-      <button onclick="goSecret()">Go to Secret Logs</button>
-    </div>
+  <div class="card">
+    <h2>Logs</h2>
+    <pre id="logs"></pre>
   </div>
 
   <script>
-    function login() {
-      const pw = document.getElementById("password").value;
-      if (pw === "secret77") {
-        document.getElementById("loginBox").style.display = "none";
-        document.getElementById("dashboard").style.display = "block";
+    async function loadDashboard() {
+      const res = await fetch("/dashboard-data");
+      const data = await res.json();
+
+      document.getElementById("version").innerText = data.version;
+
+      if (data.updateInfo.error) {
+        document.getElementById("updateStatus").innerText = "Could not fetch updates.";
+      } else if (data.updateInfo.upToDate) {
+        document.getElementById("updateStatus").innerHTML = `<span class="uptodate">✅ Up-to-date (v${data.version})</span>`;
       } else {
-        alert("Wrong password");
+        document.getElementById("updateStatus").innerHTML =
+          `<span class="update">⚠️ Update available! Current: v${data.updateInfo.current}, Latest: v${data.updateInfo.latest}</span>
+           <br><a href="${data.updateInfo.url}" target="_blank">Get update</a>`;
       }
+
+      document.getElementById("logs").innerText = data.logs.join("\n");
     }
 
-    function updateStatus() {
-      const status = document.getElementById("statusInput").value;
-      fetch("/updateStatus", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          document.getElementById("msg").textContent = "✅ Status updated: " + data.newStatus;
-        } else {
-          document.getElementById("msg").textContent = "❌ Failed to update status.";
-        }
-      })
-      .catch(() => {
-        document.getElementById("msg").textContent = "❌ Request failed.";
-      });
-    }
-
-    function goSecret() {
-      window.location.href = "/secret.html";
-    }
+    loadDashboard();
+    setInterval(loadDashboard, 5000); // refresh every 5s
   </script>
 </body>
 </html>
