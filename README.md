@@ -40,7 +40,7 @@ To build my Discord bot, follow these steps:
 Your bot should now be running and ready to use!
 
 ## Contributing
-Feel free to submit issues or pull requests to improve the bot! and You Can Join the Discord Server:
+Feel free to submit issues or pull requests to improve the bot! and You Can Join the Discord Server:https://discord.gg/Rm4QAxfR
 
 ## License
 MIT License - feel free to use and modify as needed.
