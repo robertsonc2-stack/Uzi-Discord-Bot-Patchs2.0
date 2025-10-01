@@ -55,7 +55,7 @@ const commands = {
       logEvent(`Owner updated status to: ${newStatus}`);
     }
   },
-  checkupdates: {
+  updatecheck: {
     description: "Checks for updates from GitHub",
     execute: async (msg) => {
       if (!GITHUB_REPO) return msg.reply("GitHub repo not set.");

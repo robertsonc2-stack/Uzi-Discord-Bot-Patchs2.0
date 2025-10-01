@@ -14,9 +14,7 @@
 - `!ping` — Check if the bot is responsive
 - `!status` -Random Status Replys 
 - `!cmds` — Show available commands
-- `!logs` — (Owner only) Retrieve today's log file
-- `!logs YYYY-MM-DD` — (Owner only) Retrieve log file for a specific date
-- `!logs list` — (Owner only) List all available log files
+- `!updatecheck` -Checks for Updates
 
 ## Character Personalities
 
@@ -31,7 +29,7 @@ To build my Discord bot, follow these steps:
    ```
 
 2. **Configure environment variables**
-   - Copy `.env.example` to `.env` and fill in your bot token and client ID and Gemini api key.
+   - Copy `.env.example` to `.env` and fill in your bot token and client ID and Gemini api key and The Github repo.
 
 
 3. **Run the bot**
@@ -42,7 +40,7 @@ To build my Discord bot, follow these steps:
 Your bot should now be running and ready to use!
 
 ## Contributing
-Feel free to submit issues or pull requests to improve the bot!
+Feel free to submit issues or pull requests to improve the bot! and You Can Join the Discord Server:https://discord.gg/Rm4QAxfR
 
 ## License
 MIT License - feel free to use and modify as needed.
