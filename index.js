@@ -44,7 +44,7 @@ const commands = {
       logEvent(`User ${msg.author.tag} checked bot status`);
     }
   },
-  update: {
+  uziupdate: {
     description: "Updates bot status (for owner only)",
     execute: (msg, args) => {
       if (msg.author.id !== process.env.OWNER_ID) return msg.reply("You cannot use this command.");
